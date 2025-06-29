@@ -1,0 +1,13 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: identity-verification
+spec:
+  replicas: 3
+  template:
+    spec:
+      containers:
+        - name: identity-verification
+          env:
+            - name: PLACEHOLDER_ENV
+              value: "prod"
