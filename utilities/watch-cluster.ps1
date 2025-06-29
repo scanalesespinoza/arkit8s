@@ -25,13 +25,19 @@ function Show-DetailedInfo {
     }
 
     Write-Host "Namespace status:"
-    oc get ns --no-headers | ForEach-Object { Write-Host "  $_" }
+    foreach ($ns in $namespaces) {
+        oc get ns $ns --no-headers | ForEach-Object { Write-Host "  $_" }
+    }
 
     Write-Host "Deployment status:"
-    oc get deploy -A --no-headers | ForEach-Object { Write-Host "  $_" }
+    foreach ($ns in $namespaces) {
+        oc get deploy -n $ns --no-headers | ForEach-Object { Write-Host "  $ns/$_" }
+    }
 
     Write-Host "Pod status:"
-    oc get pods -A --no-headers | ForEach-Object { Write-Host "  $_" }
+    foreach ($ns in $namespaces) {
+        oc get pods -n $ns --no-headers | ForEach-Object { Write-Host "  $ns/$_" }
+    }
 
     Write-Host "Bootstrap manifests:"
     Get-ChildItem -Path $BootstrapDir -Filter '*.yaml' | ForEach-Object {
