@@ -124,9 +124,11 @@ oc apply -f architecture/ --recursive
 ### 👀 Observación continua
 
 ```bash
-./utilities/watch-cluster.sh      # por defecto 5 minutos
-./utilities/watch-cluster.ps1 10  # observar por 10 minutos
+./utilities/watch-cluster.sh                # por defecto 5 minutos, detalle minimo
+./utilities/watch-cluster.sh 10 detailed    # 10 minutos con detalle medio
+./utilities/watch-cluster.ps1 10 all        # usar PowerShell con detalle maximo
 ```
+En modo `detailed` se listan los namespaces, deployments y manifiestos de bootstrap en cada iteración.
 
 ### 🧹 Limpiar entorno (opcional)
 
