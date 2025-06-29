@@ -24,6 +24,15 @@ function Show-DetailedInfo {
         }
     }
 
+    Write-Host "Namespace status:"
+    oc get ns --no-headers | ForEach-Object { Write-Host "  $_" }
+
+    Write-Host "Deployment status:"
+    oc get deploy -A --no-headers | ForEach-Object { Write-Host "  $_" }
+
+    Write-Host "Pod status:"
+    oc get pods -A --no-headers | ForEach-Object { Write-Host "  $_" }
+
     Write-Host "Bootstrap manifests:"
     Get-ChildItem -Path $BootstrapDir -Filter '*.yaml' | ForEach-Object {
         Write-Host "  - $($_.Name)"
