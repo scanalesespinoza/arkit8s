@@ -94,7 +94,7 @@ This project aims to:
 
 ## 💻 Manual GitOps
 
-Follow these commands to deploy or reset the full stack without a GitOps operator.
+Use the helper scripts below to deploy or reset the full stack without a GitOps operator.
 
 ### 🧱 Bootstrap (crear namespaces)
 
@@ -106,6 +106,27 @@ oc apply -f bootstrap/
 
 ```bash
 oc apply -f . --recursive
+```
+
+### 🚀 Instalación rápida
+
+```bash
+./gitops-install.sh  # para Linux/macOS
+./gitops-install.ps1 # para PowerShell
+```
+
+### 🧹 Desinstalación rápida
+
+```bash
+./gitops-uninstall.sh  # para Linux/macOS
+./gitops-uninstall.ps1 # para PowerShell
+```
+
+### 👀 Observación continua
+
+```bash
+./watch-cluster.sh      # por defecto 5 minutos
+./watch-cluster.ps1 10  # observar por 10 minutos
 ```
 
 ### 🧹 Limpiar entorno (opcional)
