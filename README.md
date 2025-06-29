@@ -128,7 +128,8 @@ oc apply -f architecture/ --recursive
 ./utilities/watch-cluster.sh 10 detailed    # 10 minutos con detalle medio
 ./utilities/watch-cluster.ps1 10 all        # usar PowerShell con detalle maximo
 ```
-En modo `detailed` se listan los namespaces, deployments y manifiestos de bootstrap en cada iteración.
+En modo `detailed` o `all` se listan los namespaces, deployments, manifiestos de bootstrap
+y se muestran los estados actuales de namespaces, deployments y pods en cada iteración.
 
 ### 🧹 Limpiar entorno (opcional)
 

@@ -23,6 +23,15 @@ show_detailed_info() {
       sed "s/^/  $ns\//"
   done
 
+  printf 'Namespace status:\n'
+  oc get ns --no-headers 2>/dev/null | sed 's/^/  /'
+
+  printf 'Deployment status:\n'
+  oc get deploy -A --no-headers 2>/dev/null | sed 's/^/  /'
+
+  printf 'Pod status:\n'
+  oc get pods -A --no-headers 2>/dev/null | sed 's/^/  /'
+
   printf 'Bootstrap manifests:\n'
   for f in "$BOOTSTRAP_DIR"/*.yaml; do
     printf '  - %s\n' "$(basename "$f")"
