@@ -1,5 +1,9 @@
 Write-Host "Verificando namespaces..."
-$namespaces = @("business-domain", "support-domain", "shared-components")
+$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$RepoRoot = Resolve-Path (Join-Path $ScriptDir "..")
+$BootstrapDir = Join-Path $RepoRoot "architecture/bootstrap"
+$namespaces = Get-ChildItem -Path $BootstrapDir -Filter "00-namespace-*.yaml" |
+    ForEach-Object { $_.BaseName -replace '^00-namespace-', '' }
 
 foreach ($ns in $namespaces) {
     $result = oc get ns $ns 2>$null
@@ -10,26 +14,29 @@ foreach ($ns in $namespaces) {
 }
 
 Write-Host "Verificando pods en estado Running o Completed..."
-$badPods = oc get pods --all-namespaces | Select-String -NotMatch "Running|Completed|NAME"
-if ($badPods) {
-    Write-Error "Existen pods que no están en estado válido:"
-    $badPods | ForEach-Object { Write-Host $_ }
-    exit 1
+foreach ($ns in $namespaces) {
+    $badPods = oc get pods -n $ns --no-headers | Select-String -NotMatch "Running|Completed"
+    if ($badPods) {
+        Write-Error "Existen pods en estado no válido en '$ns':"
+        $badPods | ForEach-Object { Write-Host $_ }
+        exit 1
+    }
 }
 
 Write-Host "Verificando que todos los Deployments estén listos..."
-$deployments = oc get deployments --all-namespaces --no-headers
-foreach ($line in $deployments) {
-    $cols = $line -split "\s+"
-    if ($cols.Count -lt 5) { continue }
+foreach ($ns in $namespaces) {
+    $deployments = oc get deployments -n $ns --no-headers
+    foreach ($line in $deployments) {
+        $cols = $line -split "\s+"
+        if ($cols.Count -lt 5) { continue }
 
-    $ns = $cols[0]
-    $name = $cols[1]
-    $ready = $cols[4] # Formato 1/1
+        $name = $cols[0]
+        $ready = $cols[1] # Formato 1/1 (READY column)
 
-    if (-not ($ready -match "^(\d+)/\1$")) {
-        Write-Error "Deployment $ns/$name no listo ($ready)"
-        exit 1
+        if (-not ($ready -match "^(\d+)/\1$")) {
+            Write-Error "Deployment $ns/$name no listo ($ready)"
+            exit 1
+        }
     }
 }
 
