@@ -1,10 +1,12 @@
+---
 apiVersion: v1
 kind: Service
 metadata:
-  name: keycloak
+  name: identity-verification
+  namespace: business-domain
 spec:
   selector:
-    app: keycloak
+    app: identity-verification
   ports:
     - protocol: TCP
       port: 80
