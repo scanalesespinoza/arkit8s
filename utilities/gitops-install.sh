@@ -1,15 +1,17 @@
 #!/bin/bash
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "$0")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+ARCH_DIR="$REPO_ROOT/architecture"
 
 printf '\n📦 Applying bootstrap namespaces...\n'
-oc apply -f "$REPO_ROOT/bootstrap/"
+oc apply -f "$ARCH_DIR/bootstrap/"
 
 printf '\n🔄 Synchronizing repository manifests...\n'
-oc apply -f "$REPO_ROOT" --recursive
+oc apply -f "$ARCH_DIR" --recursive
 
 printf '\n✅ Running validation...\n'
-"$REPO_ROOT/validate-cluster.sh"
+"$SCRIPT_DIR/validate-cluster.sh"
 
 printf '\n🎉 Install completed successfully.\n'

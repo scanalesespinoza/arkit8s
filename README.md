@@ -37,15 +37,14 @@ Each layer is represented by:
 
 ```
 arkit8s/
-├── ui/
-│   ├── kustomization.yaml
-│   ├── deployment.yaml
-│   └── service.yaml
-├── api/
-├── integration/
-├── data-access/
-├── auth/
-└── base/
+├── architecture/
+│   ├── bootstrap/
+│   ├── business-domain/
+│   ├── shared-components/
+│   └── support-domain/
+└── utilities/
+    ├── gitops-install.sh
+    └── ...
 ```
 
 
@@ -55,10 +54,10 @@ Reusable building blocks shared across domains. Components like `shared-componen
 
 ### Example usage
 
-Apply all manifests recursively from the repository root:
+Apply all manifests recursively from the `architecture/` directory:
 
 ```bash
-oc apply -f . --recursive
+oc apply -f architecture/ --recursive
 ```
 
 ## 📌 Example Annotation and Dependency
@@ -99,46 +98,46 @@ Use the helper scripts below to deploy or reset the full stack without a GitOps 
 ### 🧱 Bootstrap (crear namespaces)
 
 ```bash
-oc apply -f bootstrap/
+oc apply -f architecture/bootstrap/
 ```
 
 ### 🚀 Despliegue completo
 
 ```bash
-oc apply -f . --recursive
+oc apply -f architecture/ --recursive
 ```
 
 ### 🚀 Instalación rápida
 
 ```bash
-./gitops-install.sh  # para Linux/macOS
-./gitops-install.ps1 # para PowerShell
+./utilities/gitops-install.sh  # para Linux/macOS
+./utilities/gitops-install.ps1 # para PowerShell
 ```
 
 ### 🧹 Desinstalación rápida
 
 ```bash
-./gitops-uninstall.sh  # para Linux/macOS
-./gitops-uninstall.ps1 # para PowerShell
+./utilities/gitops-uninstall.sh  # para Linux/macOS
+./utilities/gitops-uninstall.ps1 # para PowerShell
 ```
 
 ### 👀 Observación continua
 
 ```bash
-./watch-cluster.sh      # por defecto 5 minutos
-./watch-cluster.ps1 10  # observar por 10 minutos
+./utilities/watch-cluster.sh      # por defecto 5 minutos
+./utilities/watch-cluster.ps1 10  # observar por 10 minutos
 ```
 
 ### 🧹 Limpiar entorno (opcional)
 
 ```bash
-oc delete -f . --recursive
-oc delete -f bootstrap/
+oc delete -f architecture/ --recursive
+oc delete -f architecture/bootstrap/
 ```
 
 ### ✅ Validación del entorno
 
 ```bash
-./validate-cluster.sh  # para Linux/macOS
-./validate-cluster.ps1 # para PowerShell
+./utilities/validate-cluster.sh  # para Linux/macOS
+./utilities/validate-cluster.ps1 # para PowerShell
 ```
