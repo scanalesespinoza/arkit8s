@@ -1,0 +1,28 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: identity-verification
+  labels:
+    app: identity-verification
+  namespace: support-domain
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: identity-verification
+  template:
+    metadata:
+      labels:
+        app: identity-verification
+    spec:
+      containers:
+        - name: identity-verification
+          image: registry.redhat.io/openshift4/ose-tools-rhel
+          command:
+            - /bin/bash
+            - -c
+            - sleep infinity
+          env:
+            - name: PLACEHOLDER_ENV
+              value: dev

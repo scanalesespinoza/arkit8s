@@ -1,3 +1,4 @@
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -5,9 +6,10 @@ metadata:
   labels:
     app: keycloak
   annotations:
-    domain.type: "support"
-    component.shared: "true"
-    component.name: "keycloak"
+    domain.type: support
+    component.shared: 'true'
+    component.name: keycloak
+  namespace: shared-components
 spec:
   replicas: 1
   selector:
@@ -21,7 +23,8 @@ spec:
       containers:
         - name: keycloak
           image: quay.io/keycloak/keycloak:24.0.4
-          args: ["start-dev"]
+          args:
+            - start-dev
           env:
             - name: KEYCLOAK_ADMIN
               value: admin
@@ -29,5 +32,7 @@ spec:
               value: admin
             - name: KC_DB
               value: dev-mem
+            - name: KC_HEALTH_ENABLED
+              value: 'true'
           ports:
             - containerPort: 8080

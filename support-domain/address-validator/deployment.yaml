@@ -1,9 +1,11 @@
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: identity-verification
   labels:
     app: identity-verification
+  namespace: support-domain
 spec:
   replicas: 1
   selector:
@@ -16,5 +18,11 @@ spec:
     spec:
       containers:
         - name: identity-verification
-          image: busybox:1.36
-          command: ["sh", "-c", "sleep infinity"]
+          image: registry.redhat.io/openshift4/ose-tools-rhel
+          command:
+            - /bin/bash
+            - -c
+            - sleep infinity
+          env:
+            - name: PLACEHOLDER_ENV
+              value: dev

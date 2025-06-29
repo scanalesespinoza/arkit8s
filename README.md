@@ -51,13 +51,14 @@ arkit8s/
 
 ## 🔁 Shared Components
 
-Reusable building blocks shared across domains. Components like `shared-components/keycloak` provide ready-to-use manifests with environment overlays.
+Reusable building blocks shared across domains. Components like `shared-components/access-control/keycloak` provide ready-to-use manifests that can be applied directly.
 
 ### Example usage
 
-```yaml
-resources:
-  - ../../shared-components/keycloak/overlays/dev
+Apply all manifests recursively from the repository root:
+
+```bash
+oc apply -f . --recursive
 ```
 
 ## 📌 Example Annotation and Dependency
