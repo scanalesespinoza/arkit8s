@@ -91,3 +91,33 @@ This project aims to:
 ---
 
 > 🗣️ Pronounced like "architects" — because architecture should be versioned, validated, and visible.
+
+## 💻 Manual GitOps
+
+Follow these commands to deploy or reset the full stack without a GitOps operator.
+
+### 🧱 Bootstrap (crear namespaces)
+
+```bash
+oc apply -f bootstrap/
+```
+
+### 🚀 Despliegue completo
+
+```bash
+oc apply -f . --recursive
+```
+
+### 🧹 Limpiar entorno (opcional)
+
+```bash
+oc delete -f . --recursive
+oc delete -f bootstrap/
+```
+
+### ✅ Validación del entorno
+
+```bash
+./validate-cluster.sh  # para Linux/macOS
+./validate-cluster.ps1 # para PowerShell
+```
