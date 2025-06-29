@@ -24,13 +24,19 @@ show_detailed_info() {
   done
 
   printf 'Namespace status:\n'
-  oc get ns --no-headers 2>/dev/null | sed 's/^/  /'
+  for ns in "${namespaces[@]}"; do
+    oc get ns "$ns" --no-headers 2>/dev/null | sed 's/^/  /'
+  done
 
   printf 'Deployment status:\n'
-  oc get deploy -A --no-headers 2>/dev/null | sed 's/^/  /'
+  for ns in "${namespaces[@]}"; do
+    oc get deploy -n "$ns" --no-headers 2>/dev/null | sed "s/^/  $ns\//"
+  done
 
   printf 'Pod status:\n'
-  oc get pods -A --no-headers 2>/dev/null | sed 's/^/  /'
+  for ns in "${namespaces[@]}"; do
+    oc get pods -n "$ns" --no-headers 2>/dev/null | sed "s/^/  $ns\//"
+  done
 
   printf 'Bootstrap manifests:\n'
   for f in "$BOOTSTRAP_DIR"/*.yaml; do
