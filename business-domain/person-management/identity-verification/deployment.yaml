@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
         - name: identity-verification
-          image: registry.redhat.io/openshift4/ose-tools-rhel
+          image: registry.redhat.io/openshift4/ose-tools-rhel9
           command:
             - /bin/bash
             - -c
