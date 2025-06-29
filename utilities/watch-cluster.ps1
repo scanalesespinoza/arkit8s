@@ -2,12 +2,14 @@ param(
     [int]$Minutes = 5
 )
 
+$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+
 Write-Host "Watching cluster for $Minutes minute(s)..."
 $end = (Get-Date).AddMinutes($Minutes)
 $ok = $true
 
 while ((Get-Date) -lt $end) {
-    & ./validate-cluster.ps1 > $null 2>&1
+    & (Join-Path $ScriptDir 'validate-cluster.ps1') > $null 2>&1
     if ($LASTEXITCODE -eq 0) {
         Write-Host "$(Get-Date): OK"
     } else {
