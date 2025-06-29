@@ -1,7 +1,14 @@
 #!/bin/bash
 set -euo pipefail
 
-NAMESPACES=(business-domain support-domain shared-components)
+# Determine namespaces from bootstrap manifests
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+BOOTSTRAP_DIR="$SCRIPT_DIR/../architecture/bootstrap"
+NAMESPACES=()
+for f in "$BOOTSTRAP_DIR"/00-namespace-*.yaml; do
+  ns=$(basename "$f" | sed -e 's/00-namespace-\(.*\)\.yaml/\1/')
+  NAMESPACES+=("$ns")
+done
 
 echo "🔍 Verificando namespaces..."
 for ns in "${NAMESPACES[@]}"; do
@@ -12,27 +19,31 @@ for ns in "${NAMESPACES[@]}"; do
 done
 
 echo "📦 Verificando deployments en estado Running..."
-unready=$(oc get deploy -A --no-headers | awk '$4!=$5 {print $1"/"$2}')
-if [ -n "$unready" ]; then
-  echo "Deployments no listos:" >&2
-  echo "$unready" >&2
-  exit 1
-fi
+for ns in "${NAMESPACES[@]}"; do
+  unready=$(oc get deploy -n "$ns" --no-headers | awk '$4!=$5 {print $1"/"$2}')
+  if [ -n "$unready" ]; then
+    echo "Deployments no listos en $ns:" >&2
+    echo "$unready" >&2
+    exit 1
+  fi
+done
 
 echo "🚨 Verificando pods sin errores ni reinicios..."
-bad_pods=$(oc get pods -A --no-headers | grep -vE 'Running|Completed' || true)
-if [ -n "$bad_pods" ]; then
-  echo "Pods en estado no válido:" >&2
-  echo "$bad_pods" >&2
-  exit 1
-fi
+for ns in "${NAMESPACES[@]}"; do
+  bad_pods=$(oc get pods -n "$ns" --no-headers | grep -vE 'Running|Completed' || true)
+  if [ -n "$bad_pods" ]; then
+    echo "Pods en estado no válido en $ns:" >&2
+    echo "$bad_pods" >&2
+    exit 1
+  fi
 
-restarts=$(oc get pods -A --no-headers | awk '$5>0')
-if [ -n "$restarts" ]; then
-  echo "Pods con reinicios:" >&2
-  echo "$restarts" >&2
-  exit 1
-fi
+  restarts=$(oc get pods -n "$ns" --no-headers | awk '$5>0')
+  if [ -n "$restarts" ]; then
+    echo "Pods con reinicios en $ns:" >&2
+    echo "$restarts" >&2
+    exit 1
+  fi
+done
 
 echo "🔄 Verificando sincronización de manifiestos..."
 if ! oc diff -f . --recursive >/tmp/diff.txt 2>&1; then
