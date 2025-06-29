@@ -1,16 +1,34 @@
 param(
-    [int]$Minutes = 5
+    [int]$Minutes = 5,
+    [ValidateSet('default','detailed','all')]
+    [string]$Detail = 'default'
 )
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 
-Write-Host "Watching cluster for $Minutes minute(s)..."
+Write-Host "Watching cluster for $Minutes minute(s) with detail '$Detail'..."
 $end = (Get-Date).AddMinutes($Minutes)
 $ok = $true
 
 while ((Get-Date) -lt $end) {
-    & (Join-Path $ScriptDir 'validate-cluster.ps1') > $null 2>&1
-    if ($LASTEXITCODE -eq 0) {
+    $status = 0
+    switch ($Detail) {
+        'all' {
+            & (Join-Path $ScriptDir 'validate-cluster.ps1')
+            $status = $LASTEXITCODE
+        }
+        'detailed' {
+            $output = & (Join-Path $ScriptDir 'validate-cluster.ps1') 2>&1
+            $status = $LASTEXITCODE
+            if ($status -ne 0) { $output }
+        }
+        Default {
+            & (Join-Path $ScriptDir 'validate-cluster.ps1') > $null 2>&1
+            $status = $LASTEXITCODE
+        }
+    }
+
+    if ($status -eq 0) {
         Write-Host "$(Get-Date): OK"
     } else {
         Write-Host "$(Get-Date): MISMATCH"
