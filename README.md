@@ -48,6 +48,18 @@ arkit8s/
 └── base/
 ```
 
+
+## 🔁 Shared Components
+
+Reusable building blocks shared across domains. Components like `shared-components/keycloak` provide ready-to-use manifests with environment overlays.
+
+### Example usage
+
+```yaml
+resources:
+  - ../../shared-components/keycloak/overlays/dev
+```
+
 ## 📌 Example Annotation and Dependency
 
 ```yaml
