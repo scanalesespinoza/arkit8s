@@ -1,2 +1,2 @@
 resources:
-  - ../../shared-components/keycloak/overlays/dev
+  - ../../shared-components/access-control/keycloak/overlays/dev
