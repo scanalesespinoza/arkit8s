@@ -45,7 +45,7 @@ foreach ($ns in $namespaces) {
 }
 
 Write-Host "Verificando sincronización de manifiestos para $Environment..."
-$diff = kustomize build $EnvDir | oc diff -f - 2>&1
+$diff = oc diff -k $EnvDir 2>&1
 if ($LASTEXITCODE -ne 0) {
     if ($LASTEXITCODE -eq 1) {
         Write-Error "Manifiestos desincronizados:"

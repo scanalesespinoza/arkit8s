@@ -9,7 +9,7 @@ Write-Host "\nApplying bootstrap namespaces..."
 oc apply -f (Join-Path $ArchDir "bootstrap")
 
 Write-Host "\nSynchronizing repository manifests for $Environment..."
-kustomize build $EnvDir | oc apply -f -
+oc apply -k $EnvDir
 
 Write-Host "\nRunning validation..."
 & (Join-Path $ScriptDir "validate-cluster.ps1") $Environment

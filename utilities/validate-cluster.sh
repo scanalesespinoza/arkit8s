@@ -49,7 +49,7 @@ for ns in "${NAMESPACES[@]}"; do
 done
 
 echo "🔄 Verificando sincronización de manifiestos para $ENVIRONMENT..."
-if ! kustomize build "$ENV_DIR" | oc diff -f - >/tmp/diff.txt 2>&1; then
+if ! oc diff -k "$ENV_DIR" >/tmp/diff.txt 2>&1; then
   status=$?
   if [ $status -eq 1 ]; then
     echo "Manifiestos desincronizados:" >&2

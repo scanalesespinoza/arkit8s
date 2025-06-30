@@ -104,7 +104,7 @@ oc apply -f architecture/bootstrap/
 ### 🚀 Despliegue completo
 
 ```bash
-kustomize build environments/sandbox | oc apply -f -
+oc apply -k environments/sandbox
 ```
 
 ### 🚀 Instalación rápida
