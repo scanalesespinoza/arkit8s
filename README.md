@@ -144,3 +144,12 @@ oc delete -f architecture/bootstrap/
 ./utilities/validate-cluster.sh  # para Linux/macOS
 ./utilities/validate-cluster.ps1 # para PowerShell
 ```
+
+### 📊 Reporte de arquitectura
+
+```bash
+python3 utilities/generate-architecture-report.py
+```
+Este comando extrae la metadata de todos los manifiestos en `architecture/` y
+muestra un reporte con el resumen de componentes, su flujo de llamadas y la
+trazabilidad de cada archivo.
