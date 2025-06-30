@@ -16,6 +16,9 @@ jobs:
         uses: redhat-actions/oc-installer@v1
         with:
           version: 'stable'
+      - name: Login to cluster
+        if: env.OPENSHIFT_SERVER != '' && env.OPENSHIFT_TOKEN != ''
+        run: oc login "$OPENSHIFT_SERVER" --token "$OPENSHIFT_TOKEN" --insecure-skip-tls-verify
       - name: Run YAML validation
         run: |
           chmod +x utilities/validate-yaml.sh

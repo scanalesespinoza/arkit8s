@@ -152,9 +152,12 @@ oc delete -f architecture/bootstrap/
 ```bash
 ./utilities/validate-yaml.sh
 ```
-Este script ejecuta `oc apply --dry-run=client` sobre cada YAML del repositorio
-para detectar errores de sintaxis o tipografía antes de realizar el despliegue
-o enviar un pull request.
+Antes de ejecutar el script debes iniciar sesión en tu clúster con `oc login`.
+El script ejecuta `oc apply --dry-run=client` sobre cada manifiesto para
+detectar errores de sintaxis o tipografía antes de realizar el despliegue o
+enviar un pull request.
+En GitHub Actions la validación se ejecuta automáticamente si las variables de
+entorno `OPENSHIFT_SERVER` y `OPENSHIFT_TOKEN` están definidas.
 
 ### 📊 Reporte de arquitectura
 
