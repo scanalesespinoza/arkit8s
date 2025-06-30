@@ -11,7 +11,7 @@ printf '\n📦 Applying bootstrap namespaces...\n'
 oc apply -f "$ARCH_DIR/bootstrap/"
 
 printf '\n🔄 Synchronizing repository manifests for %s...\n' "$ENVIRONMENT"
-kustomize build "$ENV_DIR" | oc apply -f -
+oc apply -k "$ENV_DIR"
 
 printf '\n✅ Running validation...\n'
 "$SCRIPT_DIR/validate-cluster.sh" "$ENVIRONMENT"
