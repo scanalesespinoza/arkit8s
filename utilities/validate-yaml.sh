@@ -1,11 +1,6 @@
 #!/bin/bash
 set -euo pipefail
 
-# Verificar que exista una sesión de oc configurada
-if ! oc whoami >/dev/null 2>&1; then
-  printf '❌ Debe ejecutar "oc login" antes de validar los manifiestos.\n' >&2
-  exit 1
-fi
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"

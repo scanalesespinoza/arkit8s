@@ -152,12 +152,12 @@ oc delete -f architecture/bootstrap/
 ```bash
 ./utilities/validate-yaml.sh
 ```
-Antes de ejecutar el script debes iniciar sesión en tu clúster con `oc login`.
 El script ejecuta `oc apply --dry-run=client` sobre cada manifiesto para
 detectar errores de sintaxis o tipografía antes de realizar el despliegue o
-enviar un pull request.
-En GitHub Actions la validación se ejecuta automáticamente si las variables de
-entorno `OPENSHIFT_SERVER` y `OPENSHIFT_TOKEN` están definidas.
+enviar un pull request. No es necesario iniciar sesión en el clúster para
+validar localmente. En GitHub Actions la validación se ejecuta automáticamente y
+si se definen las variables `OPENSHIFT_SERVER` y `OPENSHIFT_TOKEN` el workflow
+realizará `oc login` antes de validar.
 
 ### 📊 Reporte de arquitectura
 
