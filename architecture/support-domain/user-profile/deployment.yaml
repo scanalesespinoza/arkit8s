@@ -5,6 +5,12 @@ metadata:
   name: identity-verification-app-instance
   labels:
     app: identity-verification-app-instance
+  annotations:
+    architecture.domain: support
+    architecture.function: user-profile
+    architecture.invoked_by: api-app-instance
+    architecture.calls: database
+    architecture.part_of: arkit8s
   namespace: support-domain
 spec:
   replicas: 1

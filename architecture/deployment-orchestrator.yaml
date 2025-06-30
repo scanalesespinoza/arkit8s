@@ -5,6 +5,12 @@ metadata:
   name: orchestrator-app-instance
   labels:
     app: orchestrator-app-instance
+  annotations:
+    architecture.domain: support
+    architecture.function: orchestrator
+    architecture.invoked_by: api-app-instance
+    architecture.calls: notification-external-services-app-instance
+    architecture.part_of: arkit8s
   namespace: support-domain
 spec:
   replicas: 1

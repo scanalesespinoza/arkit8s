@@ -5,6 +5,12 @@ metadata:
   name: notification-external-services-app-instance
   labels:
     app: notification-external-services-app-instance
+  annotations:
+    architecture.domain: support
+    architecture.function: notification
+    architecture.invoked_by: orchestrator-app-instance
+    architecture.calls: external-email-service
+    architecture.part_of: arkit8s
   namespace: support-domain
 spec:
   replicas: 1

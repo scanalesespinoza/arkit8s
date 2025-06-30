@@ -5,6 +5,12 @@ metadata:
   name: data-access-app-instance
   labels:
     app: data-access-app-instance
+  annotations:
+    architecture.domain: support
+    architecture.function: data-access
+    architecture.invoked_by: api-app-instance
+    architecture.calls: external-database
+    architecture.part_of: arkit8s
   namespace: support-domain
 spec:
   replicas: 1

@@ -3,6 +3,12 @@ apiVersion: v1
 kind: Service
 metadata:
   name: identity-verification-app-instance
+  annotations:
+    architecture.domain: business
+    architecture.function: company-identity-verification
+    architecture.invoked_by: api-app-instance
+    architecture.calls: access-control-app-instance
+    architecture.part_of: arkit8s
   namespace: business-domain
 spec:
   selector:

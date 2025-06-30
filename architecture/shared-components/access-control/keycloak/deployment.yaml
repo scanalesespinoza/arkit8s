@@ -9,6 +9,11 @@ metadata:
     domain.type: support
     component.shared: 'true'
     component.name: keycloak
+      architecture.domain: shared
+      architecture.function: auth-provider
+      architecture.invoked_by: access-control-app-instance
+      architecture.calls: user-database
+      architecture.part_of: arkit8s
   namespace: shared-components
 spec:
   replicas: 1
