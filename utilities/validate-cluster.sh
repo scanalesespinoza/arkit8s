@@ -4,6 +4,9 @@ set -euo pipefail
 # Determine namespaces from bootstrap manifests
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BOOTSTRAP_DIR="$SCRIPT_DIR/../architecture/bootstrap"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+ENVIRONMENT="${1:-sandbox}"
+ENV_DIR="$REPO_ROOT/environments/$ENVIRONMENT"
 NAMESPACES=()
 for f in "$BOOTSTRAP_DIR"/00-namespace-*.yaml; do
   ns=$(basename "$f" | sed -e 's/00-namespace-\(.*\)\.yaml/\1/')
@@ -45,8 +48,8 @@ for ns in "${NAMESPACES[@]}"; do
   fi
 done
 
-echo "🔄 Verificando sincronización de manifiestos..."
-if ! oc diff -f . --recursive >/tmp/diff.txt 2>&1; then
+echo "🔄 Verificando sincronización de manifiestos para $ENVIRONMENT..."
+if ! kustomize build "$ENV_DIR" | oc diff -f - >/tmp/diff.txt 2>&1; then
   status=$?
   if [ $status -eq 1 ]; then
     echo "Manifiestos desincronizados:" >&2
@@ -59,4 +62,5 @@ if ! oc diff -f . --recursive >/tmp/diff.txt 2>&1; then
 fi
 
 echo "✅ Validación completada exitosamente."
+
 

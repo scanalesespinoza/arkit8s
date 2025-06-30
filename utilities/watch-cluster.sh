@@ -4,6 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 DURATION_MINUTES="${1:-5}"
 DETAIL_LEVEL="${2:-default}"
+ENVIRONMENT="${3:-sandbox}"
 BOOTSTRAP_DIR="$SCRIPT_DIR/../architecture/bootstrap"
 end=$((SECONDS + DURATION_MINUTES * 60))
 result=0
@@ -44,7 +45,7 @@ show_detailed_info() {
   done
 }
 
-printf '🔎 Watching cluster for %s minute(s) (detail: %s)...\n' "$DURATION_MINUTES" "$DETAIL_LEVEL"
+printf '🔎 Watching cluster for %s minute(s) in %s (detail: %s)...\n' "$DURATION_MINUTES" "$ENVIRONMENT" "$DETAIL_LEVEL"
 
 while [ $SECONDS -lt $end ]; do
   status=0
@@ -53,16 +54,16 @@ while [ $SECONDS -lt $end ]; do
   fi
   case "$DETAIL_LEVEL" in
     all)
-      "$SCRIPT_DIR/validate-cluster.sh" || status=$?
+      "$SCRIPT_DIR/validate-cluster.sh" "$ENVIRONMENT" || status=$?
       ;;
     detailed)
-      output=$("$SCRIPT_DIR/validate-cluster.sh" 2>&1) || status=$?
+      output=$("$SCRIPT_DIR/validate-cluster.sh" "$ENVIRONMENT" 2>&1) || status=$?
       if [ $status -ne 0 ]; then
         printf '%s\n' "$output"
       fi
       ;;
     *)
-      "$SCRIPT_DIR/validate-cluster.sh" >/dev/null 2>&1 || status=$?
+      "$SCRIPT_DIR/validate-cluster.sh" "$ENVIRONMENT" >/dev/null 2>&1 || status=$?
       ;;
   esac
 
@@ -81,3 +82,4 @@ else
   printf '⚠️  Issues detected while watching cluster.\n'
 fi
 exit $result
+
