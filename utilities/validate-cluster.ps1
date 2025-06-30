@@ -1,7 +1,11 @@
-Write-Host "Verificando namespaces..."
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RepoRoot = Resolve-Path (Join-Path $ScriptDir "..")
 $BootstrapDir = Join-Path $RepoRoot "architecture/bootstrap"
+$Environment = $args[0]
+if (-not $Environment) { $Environment = 'sandbox' }
+$EnvDir = Join-Path $RepoRoot "environments/$Environment"
+
+Write-Host "Verificando namespaces..."
 $namespaces = Get-ChildItem -Path $BootstrapDir -Filter "00-namespace-*.yaml" |
     ForEach-Object { $_.BaseName -replace '^00-namespace-', '' }
 
@@ -40,4 +44,18 @@ foreach ($ns in $namespaces) {
     }
 }
 
+Write-Host "Verificando sincronización de manifiestos para $Environment..."
+$diff = kustomize build $EnvDir | oc diff -f - 2>&1
+if ($LASTEXITCODE -ne 0) {
+    if ($LASTEXITCODE -eq 1) {
+        Write-Error "Manifiestos desincronizados:"
+        Write-Host $diff
+        exit 1
+    } else {
+        Write-Host $diff
+        exit $LASTEXITCODE
+    }
+}
+
 Write-Host "Validación completada exitosamente."
+

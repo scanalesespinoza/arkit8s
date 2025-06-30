@@ -104,14 +104,16 @@ oc apply -f architecture/bootstrap/
 ### 🚀 Despliegue completo
 
 ```bash
-oc apply -f architecture/ --recursive
+kustomize build environments/sandbox | oc apply -f -
 ```
 
 ### 🚀 Instalación rápida
 
 ```bash
-./utilities/gitops-install.sh  # para Linux/macOS
-./utilities/gitops-install.ps1 # para PowerShell
+./utilities/gitops-install.sh            # usa 'sandbox' por defecto
+./utilities/gitops-install.sh prod       # especificar ambiente
+./utilities/gitops-install.ps1           # para PowerShell, 'sandbox' por defecto
+./utilities/gitops-install.ps1 prod
 ```
 
 ### 🧹 Desinstalación rápida
@@ -124,11 +126,11 @@ oc apply -f architecture/ --recursive
 ### 👀 Observación continua
 
 ```bash
-./utilities/watch-cluster.sh                # por defecto 5 minutos, detalle minimo
-./utilities/watch-cluster.sh 10 detailed    # 10 minutos con detalle medio
-./utilities/watch-cluster.ps1 10 all        # usar PowerShell con detalle maximo
+./utilities/watch-cluster.sh                # por defecto 5 minutos en 'sandbox'
+./utilities/watch-cluster.sh 10 detailed prod
+./utilities/watch-cluster.ps1 10 all prod
 ```
-En modo `detailed` o `all` se listan los namespaces, deployments, manifiestos de bootstrap
+En modo `detailed` o `all` se listan los namespaces, deployments y manifiestos de bootstrap
 y se muestran los estados actuales de namespaces, deployments y pods en cada iteración.
 
 ### 🧹 Limpiar entorno (opcional)

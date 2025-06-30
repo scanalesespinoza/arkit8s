@@ -1,7 +1,8 @@
 param(
     [int]$Minutes = 5,
     [ValidateSet('default','detailed','all')]
-    [string]$Detail = 'default'
+    [string]$Detail = 'default',
+    [string]$Environment = 'sandbox'
 )
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -45,7 +46,7 @@ function Show-DetailedInfo {
     }
 }
 
-Write-Host "Watching cluster for $Minutes minute(s) with detail '$Detail'..."
+Write-Host "Watching cluster for $Minutes minute(s) in $Environment with detail '$Detail'..."
 $end = (Get-Date).AddMinutes($Minutes)
 $ok = $true
 
@@ -54,16 +55,16 @@ while ((Get-Date) -lt $end) {
     if ($Detail -ne 'default') { Show-DetailedInfo }
     switch ($Detail) {
         'all' {
-            & (Join-Path $ScriptDir 'validate-cluster.ps1')
+            & (Join-Path $ScriptDir 'validate-cluster.ps1') $Environment
             $status = $LASTEXITCODE
         }
         'detailed' {
-            $output = & (Join-Path $ScriptDir 'validate-cluster.ps1') 2>&1
+            $output = & (Join-Path $ScriptDir 'validate-cluster.ps1') $Environment 2>&1
             $status = $LASTEXITCODE
             if ($status -ne 0) { $output }
         }
         Default {
-            & (Join-Path $ScriptDir 'validate-cluster.ps1') > $null 2>&1
+            & (Join-Path $ScriptDir 'validate-cluster.ps1') $Environment > $null 2>&1
             $status = $LASTEXITCODE
         }
     }
@@ -84,3 +85,4 @@ if ($ok) {
     Write-Error "Issues detected while watching cluster."
     exit 1
 }
+
