@@ -147,6 +147,15 @@ oc delete -f architecture/bootstrap/
 ./utilities/validate-cluster.ps1 # para PowerShell
 ```
 
+### 🔍 Validación de manifiestos YAML
+
+```bash
+./utilities/validate-yaml.sh
+```
+Este script ejecuta `oc apply --dry-run=client` sobre cada YAML del repositorio
+para detectar errores de sintaxis o tipografía antes de realizar el despliegue
+o enviar un pull request.
+
 ### 📊 Reporte de arquitectura
 
 ```bash
