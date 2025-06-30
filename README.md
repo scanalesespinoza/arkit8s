@@ -187,6 +187,9 @@ escrito en Python que funciona tanto en Linux como en Windows:
 # Validar sintaxis YAML
 ./arkit8s.py validate-yaml
 
+# Validar coherencia de metadata
+./arkit8s.py validate-metadata
+
 # Generar reporte de arquitectura
 ./arkit8s.py report
 ```
