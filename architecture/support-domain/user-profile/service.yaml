@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: identity-verification-app-instance
+  name: user-profile-app-instance
   annotations:
     architecture.domain: support
     architecture.function: user-profile
@@ -12,7 +12,7 @@ metadata:
   namespace: support-domain
 spec:
   selector:
-    app: identity-verification-app-instance
+    app: user-profile-app-instance
   ports:
     - protocol: TCP
       port: 80

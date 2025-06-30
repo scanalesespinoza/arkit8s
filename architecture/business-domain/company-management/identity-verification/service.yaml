@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: identity-verification-app-instance
+  name: company-identity-verification-app-instance
   annotations:
     architecture.domain: business
     architecture.function: company-identity-verification
@@ -12,7 +12,7 @@ metadata:
   namespace: business-domain
 spec:
   selector:
-    app: identity-verification-app-instance
+    app: company-identity-verification-app-instance
   ports:
     - protocol: TCP
       port: 80

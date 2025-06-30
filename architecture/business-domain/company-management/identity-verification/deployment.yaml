@@ -2,9 +2,9 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: identity-verification-app-instance
+  name: company-identity-verification-app-instance
   labels:
-    app: identity-verification-app-instance
+    app: company-identity-verification-app-instance
   annotations:
     architecture.domain: business
     architecture.function: company-identity-verification
@@ -16,14 +16,14 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      app: identity-verification-app-instance
+      app: company-identity-verification-app-instance
   template:
     metadata:
       labels:
-        app: identity-verification-app-instance
+        app: company-identity-verification-app-instance
     spec:
       containers:
-        - name: identity-verification-app-instance
+        - name: company-identity-verification-app-instance
           image: registry.redhat.io/openshift4/ose-tools-rhel9
           command:
             - /bin/bash
