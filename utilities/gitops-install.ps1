@@ -6,7 +6,7 @@ if (-not $Environment) { $Environment = 'sandbox' }
 $EnvDir = Join-Path $RepoRoot "environments/$Environment"
 
 Write-Host "\nApplying bootstrap namespaces..."
-oc apply -f (Join-Path $ArchDir "bootstrap")
+oc apply -k (Join-Path $ArchDir "bootstrap")
 
 Write-Host "\nSynchronizing repository manifests for $Environment..."
 oc apply -k $EnvDir
