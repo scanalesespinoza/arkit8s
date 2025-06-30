@@ -165,3 +165,33 @@ python3 utilities/generate-architecture-report.py
 Este comando extrae la metadata de todos los manifiestos en `architecture/` y
 muestra un reporte con el resumen de componentes, su flujo de llamadas y la
 trazabilidad de cada archivo.
+
+### 🛠️ CLI `arkit8s`
+
+Todas las utilidades anteriores ahora pueden ejecutarse a través de un solo CLI
+escrito en Python que funciona tanto en Linux como en Windows:
+
+```bash
+# Instalar manifiestos en el entorno por defecto
+./arkit8s.py install
+
+# Desinstalar manifiestos
+./arkit8s.py uninstall
+
+# Validar el estado del clúster
+./arkit8s.py validate-cluster --env sandbox
+
+# Observar el clúster durante 10 minutos con detalles
+./arkit8s.py watch --minutes 10 --detail detailed
+
+# Validar sintaxis YAML
+./arkit8s.py validate-yaml
+
+# Generar reporte de arquitectura
+./arkit8s.py report
+```
+
+En Windows puede invocarse con `python arkit8s.py <comando>`. El proyecto
+mantiene los scripts en `utilities/` como referencia, pero se recomienda usar el
+CLI para una experiencia simplificada.
+
