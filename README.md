@@ -98,7 +98,7 @@ Use the helper scripts below to deploy or reset the full stack without a GitOps 
 ### 🧱 Bootstrap (crear namespaces)
 
 ```bash
-oc apply -f architecture/bootstrap/
+oc apply -k architecture/bootstrap/
 ```
 
 ### 🚀 Despliegue completo

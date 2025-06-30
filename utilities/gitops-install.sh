@@ -8,7 +8,7 @@ ENVIRONMENT="${1:-sandbox}"
 ENV_DIR="$REPO_ROOT/environments/$ENVIRONMENT"
 
 printf '\n📦 Applying bootstrap namespaces...\n'
-oc apply -f "$ARCH_DIR/bootstrap/"
+oc apply -k "$ARCH_DIR/bootstrap/"
 
 printf '\n🔄 Synchronizing repository manifests for %s...\n' "$ENVIRONMENT"
 oc apply -k "$ENV_DIR"
