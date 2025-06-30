@@ -229,6 +229,95 @@ def report(_args: argparse.Namespace) -> int:
     return 0
 
 
+def validate_metadata(_args: argparse.Namespace) -> int:
+    """Ensure calls and invoked_by metadata are consistent with manifests and NetworkPolicies."""
+    try:
+        import yaml  # type: ignore
+    except ImportError:
+        subprocess.run([sys.executable, "-m", "pip", "install", "--user", "--quiet", "pyyaml"], check=False)
+        import yaml  # type: ignore
+
+    components: dict[str, dict[str, object]] = {}
+    network_policies: list[dict[str, object]] = []
+
+    for path in sorted(ARCH_DIR.rglob("*.yaml")):
+        with open(path, 'r') as fh:
+            docs = list(yaml.safe_load_all(fh))
+        for doc in docs:
+            if not isinstance(doc, dict):
+                continue
+            kind = doc.get("kind")
+            meta = doc.get("metadata", {})
+            name = meta.get("name")
+            if not name:
+                continue
+            annotations = meta.get("annotations", {})
+            record = {
+                "name": name,
+                "kind": kind,
+                "namespace": meta.get("namespace"),
+                "invoked_by": {s.strip() for s in annotations.get("architecture.invoked_by", "").split(',') if s.strip()},
+                "calls": {s.strip() for s in annotations.get("architecture.calls", "").split(',') if s.strip()},
+                "file": path.relative_to(REPO_ROOT).as_posix(),
+            }
+            if kind == "NetworkPolicy":
+                network_policies.append(record | {"spec": doc.get("spec", {})})
+            else:
+                components[name] = record
+
+    status = 0
+    for comp in components.values():
+        for call in comp["calls"]:
+            if call not in components:
+                print(f"❌ {comp['name']} calls unknown component {call}", file=sys.stderr)
+                status = 1
+            elif comp["name"] not in components[call]["invoked_by"]:
+                print(f"❌ {call} missing invoked_by reference to {comp['name']}", file=sys.stderr)
+                status = 1
+    for comp in components.values():
+        for inv in comp["invoked_by"]:
+            if inv not in components:
+                print(f"❌ {comp['name']} invoked_by unknown component {inv}", file=sys.stderr)
+                status = 1
+            elif comp["name"] not in components[inv]["calls"]:
+                print(f"❌ {inv} missing calls reference to {comp['name']}", file=sys.stderr)
+                status = 1
+
+    if network_policies:
+        for policy in network_policies:
+            pname = policy["name"]
+            component = components.get(pname)
+            if not component:
+                continue
+            spec = policy.get("spec", {})
+            ingress = spec.get("ingress", [])
+            allow_from = {
+                r.get("podSelector", {}).get("matchLabels", {}).get("app")
+                for rule in ingress for r in rule.get("from", [])
+            }
+            egress = spec.get("egress", [])
+            allow_to = {
+                r.get("podSelector", {}).get("matchLabels", {}).get("app")
+                for rule in egress for r in rule.get("to", [])
+            }
+            for src in component["invoked_by"]:
+                if src not in allow_from:
+                    print(f"❌ NetworkPolicy {pname} does not allow from {src}", file=sys.stderr)
+                    status = 1
+            for dest in component["calls"]:
+                if dest not in allow_to:
+                    print(f"❌ NetworkPolicy {pname} does not allow to {dest}", file=sys.stderr)
+                    status = 1
+    else:
+        print("⚠️  No se encontraron NetworkPolicies. Se omitió la validación de red.")
+
+    if status == 0:
+        print("✅ Metadatos coherentes.")
+    else:
+        print("⚠️  Se encontraron inconsistencias de metadatos.", file=sys.stderr)
+    return status
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="arkit8s utility CLI")
     sub = parser.add_subparsers(dest="command")
@@ -255,6 +344,12 @@ def main() -> int:
 
     p_report = sub.add_parser("report", help="Generate architecture report")
     p_report.set_defaults(func=report)
+
+    p_meta = sub.add_parser(
+        "validate-metadata",
+        help="Check that calls and invoked_by annotations match and align with NetworkPolicies",
+    )
+    p_meta.set_defaults(func=validate_metadata)
 
     args = parser.parse_args()
     if not hasattr(args, "func"):
