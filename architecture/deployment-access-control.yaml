@@ -5,6 +5,12 @@ metadata:
   name: access-control-app-instance
   labels:
     app: access-control-app-instance
+  annotations:
+    architecture.domain: shared
+    architecture.function: access-control
+    architecture.invoked_by: ui-app-instance, api-app-instance
+    architecture.calls: keycloak
+    architecture.part_of: arkit8s
   namespace: shared-components
 spec:
   replicas: 1

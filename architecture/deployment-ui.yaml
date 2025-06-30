@@ -5,6 +5,12 @@ metadata:
   name: ui-app-instance
   labels:
     app: ui-app-instance
+  annotations:
+    architecture.domain: business
+    architecture.function: ui
+    architecture.invoked_by: users
+    architecture.calls: api-app-instance
+    architecture.part_of: arkit8s
   namespace: business-domain
 spec:
   replicas: 1
