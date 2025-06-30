@@ -318,6 +318,83 @@ def validate_metadata(_args: argparse.Namespace) -> int:
     return status
 
 
+def generate_network_policies(_args: argparse.Namespace) -> int:
+    """Output NetworkPolicy manifests based on component metadata."""
+    try:
+        import yaml  # type: ignore
+    except ImportError:
+        subprocess.run([sys.executable, "-m", "pip", "install", "--user", "--quiet", "pyyaml"], check=False)
+        import yaml  # type: ignore
+
+    components = []
+    for path in sorted(ARCH_DIR.rglob("*.yaml")):
+        with open(path, "r") as fh:
+            docs = list(yaml.safe_load_all(fh))
+        for doc in docs:
+            if not isinstance(doc, dict):
+                continue
+            if doc.get("kind") == "NetworkPolicy":
+                continue
+            meta = doc.get("metadata", {})
+            name = meta.get("name")
+            if not name:
+                continue
+            annotations = meta.get("annotations", {})
+            if "architecture.part_of" not in annotations:
+                continue
+            components.append(
+                {
+                    "name": name,
+                    "namespace": meta.get("namespace"),
+                    "invoked_by": [
+                        s.strip()
+                        for s in annotations.get("architecture.invoked_by", "").split(",")
+                        if s.strip()
+                    ],
+                    "calls": [
+                        s.strip()
+                        for s in annotations.get("architecture.calls", "").split(",")
+                        if s.strip()
+                    ],
+                }
+            )
+
+    if not components:
+        print("No se encontraron componentes para procesar", file=sys.stderr)
+        return 1
+
+    names = {c["name"] for c in components}
+    first = True
+    for comp in components:
+        ingress = [
+            {"podSelector": {"matchLabels": {"app": src}}}
+            for src in comp["invoked_by"]
+            if src in names
+        ]
+        egress = [
+            {"podSelector": {"matchLabels": {"app": dest}}}
+            for dest in comp["calls"]
+            if dest in names
+        ]
+
+        policy = {
+            "apiVersion": "networking.k8s.io/v1",
+            "kind": "NetworkPolicy",
+            "metadata": {"name": comp["name"], "namespace": comp["namespace"]},
+            "spec": {"podSelector": {"matchLabels": {"app": comp["name"]}}},
+        }
+        if ingress:
+            policy["spec"]["ingress"] = [{"from": ingress}]
+        if egress:
+            policy["spec"]["egress"] = [{"to": egress}]
+
+        if not first:
+            print("---")
+        first = False
+        print(yaml.dump(policy, sort_keys=False).strip())
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="arkit8s utility CLI")
     sub = parser.add_subparsers(dest="command")
@@ -350,6 +427,12 @@ def main() -> int:
         help="Check that calls and invoked_by annotations match and align with NetworkPolicies",
     )
     p_meta.set_defaults(func=validate_metadata)
+
+    p_gen_np = sub.add_parser(
+        "generate-network-policies",
+        help="Output NetworkPolicy manifests based on metadata",
+    )
+    p_gen_np.set_defaults(func=generate_network_policies)
 
     args = parser.parse_args()
     if not hasattr(args, "func"):

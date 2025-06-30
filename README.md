@@ -166,6 +166,14 @@ Este comando extrae la metadata de todos los manifiestos en `architecture/` y
 muestra un reporte con el resumen de componentes, su flujo de llamadas y la
 trazabilidad de cada archivo.
 
+### 🛡️ Generar NetworkPolicies
+
+```bash
+python3 utilities/generate-network-policies.py > networkpolicies.yaml
+```
+El script analiza las anotaciones de cada componente y genera políticas de red
+que permiten únicamente el tráfico declarado en la metadata.
+
 ### 🛠️ CLI `arkit8s`
 
 Todas las utilidades anteriores ahora pueden ejecutarse a través de un solo CLI
@@ -189,6 +197,9 @@ escrito en Python que funciona tanto en Linux como en Windows:
 
 # Validar coherencia de metadata
 ./arkit8s.py validate-metadata
+
+# Generar NetworkPolicies base
+./arkit8s.py generate-network-policies > networkpolicies.yaml
 
 # Generar reporte de arquitectura
 ./arkit8s.py report
