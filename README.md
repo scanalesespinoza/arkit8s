@@ -91,123 +91,126 @@ This project aims to:
 
 > 🗣️ Pronounced like "architects" — because architecture should be versioned, validated, and visible.
 
+## 👩‍💻 Developer Experience Benefits
+
+Living architecture closes the gap between business program design and actual implementation. By versioning manifests in Git, teams collaborate continuously from design through deployment. Declared dependencies and standardized layers enable early validation of business flows and help catch inconsistencies. Thanks to the provided scripts and CLI, deploying the solution across environments becomes straightforward, delivering value to end users faster.
+
+
 ## 💻 Manual GitOps
 
 Use the helper scripts below to deploy or reset the full stack without a GitOps operator.
 
-> ⚠️ **Advertencia**: asegúrate de ejecutar los comandos con una cuenta que tenga permisos para crear namespaces y aplicar recursos. La cuenta `developer` suele carecer de estos privilegios, por lo que podrías recibir errores *Forbidden*. Inicia sesión con un usuario con privilegios (por ejemplo, `oc login -u kubeadmin`) o solicita los permisos necesarios.
+> ⚠️ **Warning**: make sure to run the commands with an account that has permissions to create namespaces and apply resources. The `developer` account usually lacks these privileges, so you may receive *Forbidden* errors. Log in with a privileged user (for example `oc login -u kubeadmin`) or request the necessary permissions.
 
-### 🧱 Bootstrap (crear namespaces)
+### 🧱 Bootstrap (create namespaces)
 
 ```bash
 oc apply -k architecture/bootstrap/
 ```
 
-### 🚀 Despliegue completo
+### 🚀 Full deployment
 
 ```bash
 oc apply -k environments/sandbox
 ```
 
-### 🚀 Instalación rápida
+### 🚀 Quick installation
 
 ```bash
-./utilities/gitops-install.sh            # usa 'sandbox' por defecto
-./utilities/gitops-install.sh prod       # especificar ambiente
-./utilities/gitops-install.ps1           # para PowerShell, 'sandbox' por defecto
+./utilities/gitops-install.sh            # uses 'sandbox' by default
+./utilities/gitops-install.sh prod       # specify environment
+./utilities/gitops-install.ps1           # for PowerShell, 'sandbox' by default
 ./utilities/gitops-install.ps1 prod
 ```
 
-### 🧹 Desinstalación rápida
+### 🧹 Quick uninstall
 
 ```bash
-./utilities/gitops-uninstall.sh  # para Linux/macOS
-./utilities/gitops-uninstall.ps1 # para PowerShell
+./utilities/gitops-uninstall.sh  # for Linux/macOS
+./utilities/gitops-uninstall.ps1 # for PowerShell
 ```
 
-### 👀 Observación continua
+### 👀 Continuous watch
 
 ```bash
-./utilities/watch-cluster.sh                # por defecto 5 minutos en 'sandbox'
+./utilities/watch-cluster.sh                # defaults to 5 minutes in 'sandbox'
 ./utilities/watch-cluster.sh 10 detailed prod
 ./utilities/watch-cluster.ps1 10 all prod
 ```
-En modo `detailed` o `all` se listan los namespaces, deployments y manifiestos de bootstrap
-y se muestran los estados actuales de namespaces, deployments y pods en cada iteración.
+In `detailed` or `all` mode the namespaces, deployments and bootstrap manifests are listed
+and the current state of namespaces, deployments and pods is shown in each iteration.
 
-### 🧹 Limpiar entorno (opcional)
+### 🧹 Clean environment (optional)
 
 ```bash
 oc delete -f architecture/ --recursive
 oc delete -f architecture/bootstrap/
 ```
 
-### ✅ Validación del entorno
+### ✅ Environment validation
 
 ```bash
-./utilities/validate-cluster.sh  # para Linux/macOS
-./utilities/validate-cluster.ps1 # para PowerShell
+./utilities/validate-cluster.sh  # for Linux/macOS
+./utilities/validate-cluster.ps1 # for PowerShell
 ```
 
-### 🔍 Validación de manifiestos YAML
+### 🔍 YAML manifest validation
 
 ```bash
 ./utilities/validate-yaml.sh
 ```
-El script analiza cada archivo con **PyYAML** para detectar errores de sintaxis
-sin necesidad de tener configurado `oc` o un clúster disponible. Si la librería
-no está instalada se descargará automáticamente. En GitHub Actions la validación
-se ejecuta igual de forma autónoma y no depende de `oc login`.
+The script parses each file with **PyYAML** to detect syntax errors without requiring
+`oc` or an available cluster. If the library is not installed it will be downloaded automatically.
+In GitHub Actions the validation runs autonomously as well and does not depend on `oc login`.
 
-### 📊 Reporte de arquitectura
+### 📊 Architecture report
 
 ```bash
 python3 utilities/generate-architecture-report.py
 ```
-Este comando extrae la metadata de todos los manifiestos en `architecture/` y
-muestra un reporte con el resumen de componentes, su flujo de llamadas y la
-trazabilidad de cada archivo.
+This command extracts the metadata from all manifests in `architecture/` and
+prints a report summarizing components, their call flow and the traceability of each file.
 
-### 🛡️ Generar NetworkPolicies
+### 🛡️ Generate NetworkPolicies
 
 ```bash
 python3 utilities/generate-network-policies.py > networkpolicies.yaml
 ```
-El script analiza las anotaciones de cada componente y genera políticas de red
-que permiten únicamente el tráfico declarado en la metadata.
+The script analyses the annotations of each component and generates network policies
+that allow only the traffic declared in the metadata.
 
-### 🛠️ CLI `arkit8s`
+### 🛠️ `arkit8s` CLI
 
-Todas las utilidades anteriores ahora pueden ejecutarse a través de un solo CLI
-escrito en Python que funciona tanto en Linux como en Windows:
+All the above utilities can now be executed through a single CLI written in Python
+that works on both Linux and Windows:
 
 ```bash
-# Instalar manifiestos en el entorno por defecto
+# Install manifests to the default environment
 ./arkit8s.py install
 
-# Desinstalar manifiestos
+# Uninstall manifests
 ./arkit8s.py uninstall
 
-# Validar el estado del clúster
+# Validate cluster state
 ./arkit8s.py validate-cluster --env sandbox
 
-# Observar el clúster durante 10 minutos con detalles
+# Watch the cluster for 10 minutes with details
 ./arkit8s.py watch --minutes 10 --detail detailed
 
-# Validar sintaxis YAML
+# Validate YAML syntax
 ./arkit8s.py validate-yaml
 
-# Validar coherencia de metadata
+# Validate metadata coherence
 ./arkit8s.py validate-metadata
 
-# Generar NetworkPolicies base
+# Generate base NetworkPolicies
 ./arkit8s.py generate-network-policies > networkpolicies.yaml
 
-# Generar reporte de arquitectura
+# Generate architecture report
 ./arkit8s.py report
 ```
 
-En Windows puede invocarse con `python arkit8s.py <comando>`. El proyecto
-mantiene los scripts en `utilities/` como referencia, pero se recomienda usar el
-CLI para una experiencia simplificada.
+On Windows you can invoke it with `python arkit8s.py <command>`. The project
+keeps the scripts in `utilities/` as a reference, but using the CLI is recommended
+for a simplified experience.
 
