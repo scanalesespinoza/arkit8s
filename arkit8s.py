@@ -21,8 +21,15 @@ def run(cmd: list[str], check: bool = True) -> subprocess.CompletedProcess:
 
 def install(args: argparse.Namespace) -> int:
     env = args.env
-    run(["oc", "apply", "-k", str(ARCH_DIR / "bootstrap")])
-    run(["oc", "apply", "-k", str(ENV_DIR / env)])
+    try:
+        run(["oc", "apply", "-k", str(ARCH_DIR / "bootstrap")])
+        run(["oc", "apply", "-k", str(ENV_DIR / env)])
+    except subprocess.CalledProcessError:
+        print(
+            "\u26a0\ufe0f  Verifica que la cuenta tenga permisos para crear namespaces y aplicar recursos",
+            file=sys.stderr,
+        )
+        return 1
     return validate_cluster(args)
 
 
