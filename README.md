@@ -95,6 +95,8 @@ This project aims to:
 
 Use the helper scripts below to deploy or reset the full stack without a GitOps operator.
 
+> ⚠️ **Advertencia**: asegúrate de ejecutar los comandos con una cuenta que tenga permisos para crear namespaces y aplicar recursos. La cuenta `developer` suele carecer de estos privilegios, por lo que podrías recibir errores *Forbidden*. Inicia sesión con un usuario con privilegios (por ejemplo, `oc login -u kubeadmin`) o solicita los permisos necesarios.
+
 ### 🧱 Bootstrap (crear namespaces)
 
 ```bash
