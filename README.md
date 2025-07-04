@@ -208,7 +208,14 @@ that works on both Linux and Windows:
 
 # Generate architecture report
 ./arkit8s.py report
+
+# Create a new component instance
+./arkit8s.py create-component my-comp --type service --domain support \
+    --branch component-instances
 ```
+
+This command switches to the specified branch (creating it if needed) before
+generating the manifests so that local changes stay separate from `main`.
 
 On Windows you can invoke it with `python arkit8s.py <command>`. The project
 keeps the scripts in `utilities/` as a reference, but using the CLI is recommended

@@ -19,6 +19,31 @@ def run(cmd: list[str], check: bool = True) -> subprocess.CompletedProcess:
     return subprocess.run(cmd, check=check)
 
 
+def ensure_branch(name: str) -> None:
+    """Create and checkout a local git branch if possible."""
+    res = subprocess.run(
+        ["git", "rev-parse", "--is-inside-work-tree"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    if res.returncode != 0:
+        return
+
+    exists = (
+        subprocess.run(
+            ["git", "show-ref", "--verify", f"refs/heads/{name}"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        ).returncode
+        == 0
+    )
+
+    if exists:
+        subprocess.run(["git", "checkout", name], check=True)
+    else:
+        subprocess.run(["git", "checkout", "-b", name], check=True)
+
+
 def install(args: argparse.Namespace) -> int:
     env = args.env
     try:
@@ -402,6 +427,133 @@ def generate_network_policies(_args: argparse.Namespace) -> int:
     return 0
 
 
+def create_component(args: argparse.Namespace) -> int:
+    """Create a new component instance from the inventory."""
+    ensure_branch(args.branch)
+    try:
+        import yaml  # type: ignore
+    except ImportError:  # pragma: no cover - handled at runtime
+        subprocess.run(
+            [sys.executable, "-m", "pip", "install", "--user", "--quiet", "pyyaml"],
+            check=False,
+        )
+        import yaml  # type: ignore
+
+    inventory_file = REPO_ROOT / "component_inventory.yaml"
+    if not inventory_file.exists():
+        print("Inventario de componentes no encontrado", file=sys.stderr)
+        return 1
+
+    with inventory_file.open() as fh:
+        inventory = yaml.safe_load(fh) or {}
+
+    comp_defs = inventory.get("components", {})
+    if args.type not in comp_defs:
+        print(f"Tipo de componente desconocido: {args.type}", file=sys.stderr)
+        print(f"Tipos disponibles: {', '.join(comp_defs)}", file=sys.stderr)
+        return 1
+
+    definition = comp_defs[args.type]
+    with_service = bool(definition.get("with_service", False))
+    function = args.function or definition.get("function", args.type)
+
+    domain_map = {
+        "business": "business-domain",
+        "support": "support-domain",
+        "shared": "shared-components",
+    }
+    if args.domain not in domain_map:
+        print(f"Dominio desconocido: {args.domain}", file=sys.stderr)
+        return 1
+    domain_dir = ARCH_DIR / domain_map[args.domain]
+    if not domain_dir.exists():
+        print(f"Directorio de dominio no existe: {domain_dir}", file=sys.stderr)
+        return 1
+
+    comp_dir = domain_dir / args.name
+    if comp_dir.exists():
+        print(f"El componente {args.name} ya existe", file=sys.stderr)
+        return 1
+    comp_dir.mkdir(parents=True)
+
+    deployment = f"""---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {args.name}
+  labels:
+    app: {args.name}
+  annotations:
+    architecture.domain: {args.domain}
+    architecture.function: {function}
+    architecture.part_of: arkit8s
+  namespace: {domain_map[args.domain]}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {args.name}
+  template:
+    metadata:
+      labels:
+        app: {args.name}
+    spec:
+      containers:
+        - name: {args.name}
+          image: registry.redhat.io/openshift4/ose-tools-rhel9
+          command:
+            - /bin/bash
+            - -c
+            - sleep infinity
+"""
+
+    (comp_dir / "deployment.yaml").write_text(deployment)
+
+    resources = ["deployment.yaml"]
+    if with_service:
+        service = f"""---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {args.name}
+  annotations:
+    architecture.domain: {args.domain}
+    architecture.function: {function}
+    architecture.part_of: arkit8s
+  namespace: {domain_map[args.domain]}
+spec:
+  selector:
+    app: {args.name}
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+"""
+        (comp_dir / "service.yaml").write_text(service)
+        resources.append("service.yaml")
+
+    kustom = {
+        "apiVersion": "kustomize.config.k8s.io/v1beta1",
+        "kind": "Kustomization",
+        "commonLabels": {"arkit8s.component": args.name},
+        "resources": resources,
+    }
+    (comp_dir / "kustomization.yaml").write_text(yaml.dump(kustom, sort_keys=False))
+
+    # update domain kustomization
+    domain_k_file = domain_dir / "kustomization.yaml"
+    with domain_k_file.open() as fh:
+        domain_k = yaml.safe_load(fh) or {}
+    res_list = domain_k.get("resources", [])
+    if args.name not in res_list:
+        res_list.append(args.name)
+        domain_k["resources"] = res_list
+        domain_k_file.write_text(yaml.dump(domain_k, sort_keys=False))
+
+    print(f"Componente {args.name} creado en {comp_dir}")
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="arkit8s utility CLI")
     sub = parser.add_subparsers(dest="command")
@@ -440,6 +592,26 @@ def main() -> int:
         help="Output NetworkPolicy manifests based on metadata",
     )
     p_gen_np.set_defaults(func=generate_network_policies)
+
+    p_new = sub.add_parser(
+        "create-component",
+        help="Create a new component instance from the inventory",
+    )
+    p_new.add_argument("name", help="Component instance name")
+    p_new.add_argument("--type", required=True, help="Component type from inventory")
+    p_new.add_argument(
+        "--domain",
+        required=True,
+        choices=["business", "support", "shared"],
+        help="Target domain short name",
+    )
+    p_new.add_argument("--function", help="Override function annotation")
+    p_new.add_argument(
+        "--branch",
+        default="component-instances",
+        help="Local git branch to store generated manifests",
+    )
+    p_new.set_defaults(func=create_component)
 
     args = parser.parse_args()
     if not hasattr(args, "func"):
