@@ -1,0 +1,10 @@
+components:
+  api:
+    with_service: false
+    function: api
+  ui:
+    with_service: false
+    function: ui
+  service:
+    with_service: true
+    function: microservice
