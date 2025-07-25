@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import subprocess
+import shutil
 import sys
 import time
 from pathlib import Path
@@ -122,6 +123,9 @@ def validate_cluster(args: argparse.Namespace, quiet: bool = False) -> int:
                 return 1
     if not quiet:
         print(f"🔄 Verificando sincronización de manifiestos para {env}...")
+    if shutil.which("diff") is None:
+        print("error: comando 'diff' no encontrado. Instale diffutils.", file=sys.stderr)
+        return 1
     proc = subprocess.run(["oc", "diff", "-k", str(env_dir)], capture_output=True, text=True)
     if proc.returncode == 1:
         print("Manifiestos desincronizados:", file=sys.stderr)
