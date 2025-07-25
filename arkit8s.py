@@ -90,9 +90,21 @@ def validate_cluster(args: argparse.Namespace, quiet: bool = False) -> int:
             continue
         for line in proc.stdout.splitlines():
             cols = line.split()
-            if len(cols) < 5:
+            if len(cols) < 2:
                 continue
-            if cols[1] != cols[2]:
+            ready = cols[1]
+            if "/" in ready:
+                try:
+                    current, desired = (int(x) for x in ready.split("/", 1))
+                except ValueError:
+                    current = desired = 0
+                if current != desired:
+                    print(
+                        f"Deployment no listo en {ns}: {cols[0]}",
+                        file=sys.stderr,
+                    )
+                    return 1
+            elif len(cols) >= 3 and cols[1] != cols[2]:
                 print(f"Deployment no listo en {ns}: {cols[0]}", file=sys.stderr)
                 return 1
     if not quiet:
