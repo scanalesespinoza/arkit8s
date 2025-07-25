@@ -236,9 +236,18 @@ def report(_args: argparse.Namespace) -> int:
                 "namespace": meta.get("namespace"),
                 "domain": annotations.get("architecture.domain"),
                 "function": annotations.get("architecture.function"),
-                "invoked_by": [s.strip() for s in annotations.get("architecture.invoked_by", "").split(',') if s.strip()],
-                "calls": [s.strip() for s in annotations.get("architecture.calls", "").split(',') if s.strip()],
+                "invoked_by": [
+                    s.strip()
+                    for s in annotations.get("architecture.invoked_by", "").split(",")
+                    if s.strip()
+                ],
+                "calls": [
+                    s.strip()
+                    for s in annotations.get("architecture.calls", "").split(",")
+                    if s.strip()
+                ],
                 "file": path.relative_to(REPO_ROOT).as_posix(),
+                "bootstrap": path.is_relative_to(ARCH_DIR / "bootstrap"),
             }
             components.append(comp)
 
@@ -249,7 +258,10 @@ def report(_args: argparse.Namespace) -> int:
     print("# Reporte de arquitectura viva\n")
     print("## Resumen de componentes\n")
     for c in components:
-        print(f"- **{c['name']}** ({c['kind']} en {c['namespace']})")
+        if c["kind"] == "Namespace" and c.get("bootstrap"):
+            print(f"- **{c['name']}** ({c['kind']})")
+        else:
+            print(f"- **{c['name']}** ({c['kind']} en {c['namespace']})")
         if c.get("domain"):
             print(f"  - Dominio: {c['domain']}")
         if c.get("function"):
