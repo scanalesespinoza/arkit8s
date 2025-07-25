@@ -621,4 +621,12 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    code = main()
+    print("Tarea finalizada")
+    while True:
+        resp = input("\u00bfDesea Salir? (Y/N) ").strip().lower()
+        if resp == "y":
+            break
+        if resp == "n":
+            continue
+    sys.exit(code)
