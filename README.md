@@ -1,5 +1,7 @@
 # arkit8s – Living Architecture for Kubernetes
 
+> ⚠️ Este archivo es editado automáticamente por el CLI arkit8s.py tras la creación de componentes. No edites manualmente las secciones de ejemplo.
+
 **arkit8s** (pronounced "architects") is a living, executable architecture blueprint for Kubernetes and OpenShift environments. It replaces static diagrams with declarative, observable, and deployable definitions managed through GitOps.
 
 ## 🎯 Purpose
@@ -52,12 +54,35 @@ arkit8s/
 
 Reusable building blocks shared across domains. Components like `shared-components/access-control/keycloak` provide ready-to-use manifests that can be applied directly.
 
+
 ### Example usage
 
 Apply all manifests recursively from the `architecture/` directory:
 
 ```bash
 oc apply -f architecture/ --recursive
+```
+
+### Example: Crear un componente con dependencias
+
+```bash
+./arkit8s.py create-component my-comp --type service --domain support \
+    --depends-incluster api-user-svc,integration-token-svc \
+    --depends-outcluster https://auth0.example.com \
+    --branch component-instances
+```
+
+Esto generará un manifiesto con metadata curada como:
+
+```yaml
+metadata:
+  name: my-comp
+  annotations:
+    architecture.domain: support
+    architecture.function: microservice
+    architecture.part_of: arkit8s
+    depends.incluster: api-user-svc,integration-token-svc
+    depends.outcluster: https://auth0.example.com
 ```
 
 ## 📌 Example Annotation and Dependency

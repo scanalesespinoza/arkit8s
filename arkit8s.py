@@ -484,6 +484,20 @@ def create_component(args: argparse.Namespace) -> int:
     definition = comp_defs[args.type]
     with_service = bool(definition.get("with_service", False))
     function = args.function or definition.get("function", args.type)
+    # Parse dependencies from CLI
+    depends_incluster = getattr(args, "depends_incluster", None)
+    depends_outcluster = getattr(args, "depends_outcluster", None)
+    # Prepare annotation fields
+    annotations = {
+        "architecture.domain": args.domain,
+        "architecture.function": function,
+        "architecture.part_of": "arkit8s",
+    }
+    # Add dependency metadata as recommended in README
+    if depends_incluster:
+        annotations["depends.incluster"] = depends_incluster
+    if depends_outcluster:
+        annotations["depends.outcluster"] = depends_outcluster
 
     domain_map = {
         "business": "business-domain",
@@ -498,67 +512,65 @@ def create_component(args: argparse.Namespace) -> int:
         print(f"Directorio de dominio no existe: {domain_dir}", file=sys.stderr)
         return 1
 
-    comp_dir = domain_dir / args.name
-    if comp_dir.exists():
-        print(f"El componente {args.name} ya existe", file=sys.stderr)
-        return 1
-    comp_dir.mkdir(parents=True)
+        comp_dir = domain_dir / args.name
+        if comp_dir.exists():
+                print(f"El componente {args.name} ya existe", file=sys.stderr)
+                return 1
+        comp_dir.mkdir(parents=True)
 
-    deployment = f"""---
+        # Build annotation YAML block
+        annotation_yaml = "\n".join([f"    {k}: {v}" for k, v in annotations.items()])
+        deployment = f"""---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {args.name}
-  labels:
-    app: {args.name}
-  annotations:
-    architecture.domain: {args.domain}
-    architecture.function: {function}
-    architecture.part_of: arkit8s
-  namespace: {domain_map[args.domain]}
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: {args.name}
-  template:
-    metadata:
-      labels:
+    name: {args.name}
+    labels:
         app: {args.name}
-    spec:
-      containers:
-        - name: {args.name}
-          image: registry.redhat.io/openshift4/ose-tools-rhel9
-          command:
-            - /bin/bash
-            - -c
-            - sleep infinity
+    annotations:
+{annotation_yaml}
+    namespace: {domain_map[args.domain]}
+spec:
+    replicas: 1
+    selector:
+        matchLabels:
+            app: {args.name}
+    template:
+        metadata:
+            labels:
+                app: {args.name}
+        spec:
+            containers:
+                - name: {args.name}
+                    image: registry.redhat.io/openshift4/ose-tools-rhel9
+                    command:
+                        - /bin/bash
+                        - -c
+                        - sleep infinity
 """
+        (comp_dir / "deployment.yaml").write_text(deployment)
 
-    (comp_dir / "deployment.yaml").write_text(deployment)
-
-    resources = ["deployment.yaml"]
-    if with_service:
-        service = f"""---
+        resources = ["deployment.yaml"]
+        if with_service:
+                service_annotation_yaml = annotation_yaml
+                service = f"""---
 apiVersion: v1
 kind: Service
 metadata:
-  name: {args.name}
-  annotations:
-    architecture.domain: {args.domain}
-    architecture.function: {function}
-    architecture.part_of: arkit8s
-  namespace: {domain_map[args.domain]}
+    name: {args.name}
+    annotations:
+{service_annotation_yaml}
+    namespace: {domain_map[args.domain]}
 spec:
-  selector:
-    app: {args.name}
-  ports:
-    - protocol: TCP
-      port: 80
-      targetPort: 8080
+    selector:
+        app: {args.name}
+    ports:
+        - protocol: TCP
+            port: 80
+            targetPort: 8080
 """
-        (comp_dir / "service.yaml").write_text(service)
-        resources.append("service.yaml")
+                (comp_dir / "service.yaml").write_text(service)
+                resources.append("service.yaml")
 
     kustom = {
         "apiVersion": "kustomize.config.k8s.io/v1beta1",
@@ -634,6 +646,14 @@ def main() -> int:
         help="Target domain short name",
     )
     p_new.add_argument("--function", help="Override function annotation")
+    p_new.add_argument(
+        "--depends-incluster",
+        help="Comma-separated list of in-cluster dependencies (e.g. api-user-svc, integration-token-svc)",
+    )
+    p_new.add_argument(
+        "--depends-outcluster",
+        help="Comma-separated list of out-of-cluster dependencies (e.g. https://auth0.example.com)",
+    )
     p_new.add_argument(
         "--branch",
         default="component-instances",
