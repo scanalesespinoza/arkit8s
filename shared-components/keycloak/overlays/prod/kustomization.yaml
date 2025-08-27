@@ -1,0 +1,6 @@
+namespace: rhbk
+resources:
+  - ../../base
+patchesStrategicMerge:
+  - patch-disable-http.yaml
+  - patch-external-db.yaml

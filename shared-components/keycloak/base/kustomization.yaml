@@ -1,0 +1,6 @@
+namespace: rhbk
+resources:
+  - secrets/
+  - postgres-dev.yaml
+  - keycloak-cr.yaml
+  - realm-demo-cr.yaml
