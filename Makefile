@@ -1,3 +1,5 @@
+SHELL := /usr/bin/bash
+
 NAMESPACE=rhbk
 HOST=http://rhbk.apps-crc.testing/
 
