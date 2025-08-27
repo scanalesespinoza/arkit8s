@@ -4,10 +4,10 @@ HOST=http://rhbk.apps-crc.testing/
 .PHONY: crc-dev wait admin open destroy
 
 crc-dev:
-	oc apply -k bootstrap/operators/rhbk
-	@echo "Waiting for RHBK operator to be ready..."
-	@oc wait --for=condition=Succeeded -n $(NAMESPACE) csv -l operators.coreos.com/rhbk-operator.$(NAMESPACE) --timeout=300s
-	oc apply -k support-domain/identity
+        oc kustomize bootstrap/operators/rhbk --load-restrictor=LoadRestrictionsNone | oc apply -f -
+        @echo "Waiting for RHBK operator to be ready..."
+        @oc wait --for=condition=Succeeded -n $(NAMESPACE) csv -l operators.coreos.com/rhbk-operator.$(NAMESPACE) --timeout=300s
+        oc apply -k support-domain/identity
 
 wait:
 	@echo "Waiting for Keycloak to be ready..."
@@ -21,5 +21,5 @@ open:
 	@echo $(HOST)
 
 destroy:
-	-oc delete -k support-domain/identity
-	-oc delete -k bootstrap/operators/rhbk
+        -oc delete -k support-domain/identity
+        -oc kustomize bootstrap/operators/rhbk --load-restrictor=LoadRestrictionsNone | oc delete -f -
