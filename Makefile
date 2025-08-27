@@ -6,6 +6,7 @@ HOST=http://rhbk.apps-crc.testing/
 crc-dev:
 	oc kustomize bootstrap/operators/rhbk --load-restrictor=LoadRestrictionsNone | oc apply -f -
 	@echo "Waiting for RHBK operator to be ready..."
+	@until oc -n $(NAMESPACE) get csv -l operators.coreos.com/rhbk-operator.$(NAMESPACE) -o name 2>/dev/null | grep -q .; do sleep 5; done
 	@oc wait --for=condition=Succeeded -n $(NAMESPACE) csv -l operators.coreos.com/rhbk-operator.$(NAMESPACE) --timeout=300s
 	oc apply -k support-domain/identity
 
