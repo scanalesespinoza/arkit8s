@@ -1,0 +1,6 @@
+namespace: rhbk
+resources:
+  - ../../base
+patchesStrategicMerge:
+  - patch-hostname.yaml
+  - patch-http-enabled.yaml

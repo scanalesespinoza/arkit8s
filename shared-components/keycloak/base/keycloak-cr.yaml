@@ -1,0 +1,29 @@
+apiVersion: k8s.keycloak.org/v2alpha1
+kind: Keycloak
+metadata:
+  name: rhbk
+  namespace: rhbk
+spec:
+  instances: 1
+  db:
+    vendor: postgres
+    host: postgres-db
+    port: 5432
+    database: keycloak
+    usernameSecret:
+      name: kc-db-credentials
+      key: username
+    passwordSecret:
+      name: kc-db-credentials
+      key: password
+  ingress:
+    enabled: true
+    className: openshift-default
+  proxy:
+    headers: xforwarded
+  hostname:
+    hostname: CHANGE-ME.invalid
+    strict: false
+    strictBackchannel: false
+  http:
+    httpEnabled: false

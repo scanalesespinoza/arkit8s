@@ -1,0 +1,26 @@
+# Remove dev Postgres and configure external database
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: rhbk
+$patch: delete
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-db
+  namespace: rhbk
+$patch: delete
+---
+apiVersion: k8s.keycloak.org/v2alpha1
+kind: Keycloak
+metadata:
+  name: rhbk
+  namespace: rhbk
+spec:
+  db:
+    host: external-db-host
+    port: 5432
+    database: keycloak
+    # Secret kc-db-credentials must be provided separately (e.g., via SealedSecrets)

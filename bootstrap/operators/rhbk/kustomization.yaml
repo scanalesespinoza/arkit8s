@@ -1,0 +1,4 @@
+resources:
+  - ../../namespaces/rhbk-namespace.yaml
+  - operatorgroup.yaml
+  - subscription.yaml
