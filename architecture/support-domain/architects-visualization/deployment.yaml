@@ -1,0 +1,69 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: architects-visualization
+  namespace: support-domain
+  labels:
+    app: architects-visualization
+    app.kubernetes.io/name: architects-visualization
+    app.kubernetes.io/component: control-plane
+    app.kubernetes.io/part-of: arkit8s
+  annotations:
+    architecture.domain: support
+    architecture.function: architecture-visualization
+    architecture.part_of: arkit8s
+    architecture.calls: architects-console-commands
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: architects-visualization
+  template:
+    metadata:
+      labels:
+        app: architects-visualization
+    spec:
+      containers:
+        - name: web-console
+          image: quay.io/quarkus/quarkus-native-binary:2.16
+          imagePullPolicy: IfNotPresent
+          args:
+            - "-Dquarkus.http.host=0.0.0.0"
+            - "-Dquarkus.config.locations=file:/deployments/config/application.properties"
+          env:
+            - name: ARKIT8S_CONSOLE_COMMANDS
+              value: /opt/arkit8s/commands/commands.json
+            - name: QUARKUS_PROFILE
+              value: prod
+          ports:
+            - containerPort: 8080
+              name: http
+          volumeMounts:
+            - name: ui-config
+              mountPath: /deployments/config
+            - name: cli-commands
+              mountPath: /opt/arkit8s/commands
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /q/health/ready
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /q/health/live
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 20
+      volumes:
+        - name: ui-config
+          configMap:
+            name: architects-visualization-ui
+        - name: cli-commands
+          configMap:
+            name: architects-console-commands
+            items:
+              - key: commands.json
+                path: commands.json
