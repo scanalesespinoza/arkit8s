@@ -62,4 +62,4 @@ data:
     \      \"summary\": \"Monitorea continuamente la sincron\xEDa del cl\xFAster con\
     \ los manifiestos\",\n      \"usage\": \"usage: arkit8s.py watch [-h] [--minutes\
     \ MINUTES] [--detail {default,detailed,all}] [--env ENV]\"\n    }\n  ],\n  \"\
-    generated_at\": \"2025-10-08T14:14:53Z\"\n}"
+    generated_at\": \"2025-10-08T21:23:52Z\"\n}"

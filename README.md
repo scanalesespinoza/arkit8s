@@ -75,8 +75,8 @@ El script `arkit8s.py` centraliza las tareas operativas de la plataforma. Todos 
 ### Visualización Architects
 
 1. Ejecuta `python arkit8s.py sync-web-console` tras añadir o modificar comandos del CLI. Este paso genera `architecture/support-domain/architects-visualization/console-commands-configmap.yaml` con la descripción y el `usage` de cada subcomando.
-2. Aplica los manifiestos (`./arkit8s.py install --env sandbox`) para desplegar el `Deployment` Quarkus nativo (`quay.io/quarkus/quarkus-native-binary`) que monta tanto la configuración Qute como los comandos generados.
-3. Expone el servicio `architects-visualization` mediante un `Route` o `oc port-forward svc/architects-visualization 8080` para acceder a la interfaz inspirada en Kubeland.
+2. Aplica los manifiestos (`./arkit8s.py install --env sandbox`) para desplegar el `Deployment` que compila Kubeland en un `initContainer` Maven y ejecuta el `app.jar` resultante sobre `eclipse-temurin:17-jre`, montando tanto la configuración Qute como los comandos generados.
+3. Expone el servicio `architects-visualization` mediante un `Route` o `oc port-forward svc/architects-visualization 8080` para acceder a la interfaz inspirada en Kubeland. El `Deployment` incluye un `initContainer` que clona `scanalesespinoza/kubeland`, empaqueta la aplicación Quarkus y la monta como `app.jar` dentro del contenedor principal basado en `eclipse-temurin:17-jre`, garantizando que el binario exista en `/work/application/app.jar` antes de iniciar la consola.
 4. Utiliza la consola web para invocar acciones del CLI desde el navegador, manteniendo sincronía entre operaciones declarativas y observabilidad del plano de control.
 
 #### Ejemplos de uso de simuladores de carga
