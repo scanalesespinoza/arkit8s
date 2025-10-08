@@ -62,10 +62,17 @@ El script `arkit8s.py` centraliza las tareas operativas de la plataforma. Todos 
 - `report` – genera un reporte Markdown con trazabilidad de componentes y relaciones usando las anotaciones `architecture.*`.
 - `validate-metadata` – comprueba coherencia entre los campos `calls`/`invoked_by` y que las NetworkPolicies permitan el tráfico declarado.
 - `generate-network-policies` – produce manifiestos de NetworkPolicy derivados de las anotaciones de dependencias (útil para revisiones o generación automatizada).
-- `generate-load-simulators [--count <n>] [--targets <componentes>] [--seed <n>]` – crea Deployments sintéticos con comportamientos aleatorios (`ok`, `notready`, `restart`) tomando como referencia el repositorio [`quarkus-txt-report-frontend`](https://github.com/scanalesespinoza/quarkus-txt-report-frontend). Útil para ejercitar dominios de negocio y validar el flujo de reportes.
+- `generate-load-simulators [--count <n>] [--targets <componentes>] [--seed <n>] [--behavior <dynamic|ok|notready|restart>]` – crea Deployments sintéticos que, por omisión, alternan aleatoriamente entre `ok`, `notready` y `restart` cada 1–60 minutos para simular incidentes realistas. Con `--behavior` puedes fijar un estado específico.
 - `list-load-simulators` – consulta en el clúster todos los Deployments etiquetados como simuladores (`arkit8s.simulator=true`) e imprime el namespace, nombre y comportamiento (`BEHAVIOR`) asignado a cada uno.
 - `cleanup-load-simulators [--branch <nombre>] [--targets <componentes>]` – elimina los simuladores del clúster, borra los manifiestos `load-simulators.yaml` generados por el comando y retira su referencia de los `kustomization.yaml`.  Después de ejecutar la limpieza, cambia a tu rama principal (`git switch main`) y elimina la rama temporal (`git branch -D <nombre>`).
 - `create-component --type <tipo> --domain <business|support|shared> --branch <rama>` – crea una instancia de componente a partir del inventario (`component_inventory.yaml`), generando Deployment/Service/Kustomization y actualizando el `kustomization.yaml` del dominio.
+
+#### Ejemplos de uso de simuladores de carga
+
+- `./arkit8s.py generate-load-simulators` – genera simuladores con comportamiento dinámico: cada pod cambia aleatoriamente entre `ok`, `notready` y `restart` en intervalos aleatorios de 1 a 60 minutos.
+- `./arkit8s.py generate-load-simulators --behavior notready` – todos los simuladores permanecen permanentemente en estado `notready`, útil para probar alertas de disponibilidad.
+- `./arkit8s.py generate-load-simulators --behavior ok` – los simuladores se mantienen estables y siempre listos, ideal para validar flujos felices sin interrupciones.
+- `./arkit8s.py generate-load-simulators --behavior restart` – los simuladores reinician periódicamente tras 60 segundos, ideal para evaluar tolerancia a reinicios.
 
 ### Ejemplo práctico: instalar **Sentik**
 

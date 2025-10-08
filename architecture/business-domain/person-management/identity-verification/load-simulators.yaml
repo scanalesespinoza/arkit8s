@@ -30,26 +30,129 @@ spec:
           image: registry.access.redhat.com/ubi10/ubi-minimal
           env:
             - name: BEHAVIOR
-              value: "notready"
+              value: "dynamic"
+            - name: BEHAVIOR_SEED
+              value: "1894882143"
           command:
             - sh
             - -c
             - |
-              echo "[$(date -u)] starting with BEHAVIOR=$BEHAVIOR"
-              if [ "$BEHAVIOR" = "restart" ]; then
-                sleep 60
-                echo "[$(date -u)] simulating crash to trigger restart"
-                exit 1
-              elif [ "$BEHAVIOR" = "notready" ]; then
-                while true; do
-                  sleep 30
+              STATE_FILE="/tmp/current_behavior"
+              BEHAVIOR=${BEHAVIOR:-dynamic}
+              BEHAVIOR_SEED=${BEHAVIOR_SEED:-}
+              BEHAVIOR_CHOICES="ok notready restart"
+              RANDOM_COUNTER=0
+
+              log() {
+                echo "[$(date -u)] $*"
+              }
+
+              write_state() {
+                printf '%s\n' "$1" > "$STATE_FILE"
+              }
+
+              next_random() {
+                if [ -n "$BEHAVIOR_SEED" ]; then
+                  value=$(awk -v seed="$BEHAVIOR_SEED" -v step="$RANDOM_COUNTER" 'BEGIN { srand(seed + step); printf "%d\n", int(rand() * 32768) }')
+                else
+                  value=$(od -An -N2 -tu2 /dev/urandom | tr -d ' ')
+                fi
+                RANDOM_COUNTER=$((RANDOM_COUNTER + 1))
+                printf '%s\n' "${value:-0}"
+              }
+
+              choose_behavior() {
+                set -- $BEHAVIOR_CHOICES
+                count=$#
+                if [ "$count" -eq 0 ]; then
+                  printf 'ok\n'
+                  return
+                fi
+                rand=$(next_random)
+                idx=$((rand % count + 1))
+                i=1
+                for option in "$@"; do
+                  if [ "$i" -eq "$idx" ]; then
+                    printf '%s\n' "$option"
+                    return
+                  fi
+                  i=$((i + 1))
                 done
-              else
-                while true; do
-                  echo "[$(date -u)] running normally (BEHAVIOR=$BEHAVIOR)"
-                  sleep 30
+                printf '%s\n' "$1"
+              }
+
+              random_minutes() {
+                rand=$(next_random)
+                printf '%s\n' $((rand % 60 + 1))
+              }
+
+              wait_duration() {
+                duration_seconds=$1
+                behavior_label=$2
+                end=$(( $(date +%s) + duration_seconds ))
+                while [ "$(date +%s)" -lt "$end" ]; do
+                  case "$behavior_label" in
+                    ok)
+                      log "running normally (dynamic ok)"
+                      sleep 30
+                      ;;
+                    notready)
+                      sleep 30
+                      ;;
+                    *)
+                      sleep 5
+                      ;;
+                  esac
                 done
+              }
+
+              log "starting with BEHAVIOR=$BEHAVIOR"
+              write_state "$BEHAVIOR"
+
+              if [ "$BEHAVIOR" != "dynamic" ]; then
+                case "$BEHAVIOR" in
+                  restart)
+                    sleep 60
+                    log "simulating crash to trigger restart"
+                    exit 1
+                    ;;
+                  notready)
+                    while true; do
+                      sleep 30
+                    done
+                    ;;
+                  *)
+                    while true; do
+                      log "running normally (BEHAVIOR=$BEHAVIOR)"
+                      sleep 30
+                    done
+                    ;;
+                esac
               fi
+
+              log "enabling dynamic behavior changes"
+              while true; do
+                next=$(choose_behavior)
+                minutes=$(random_minutes)
+                seconds=$((minutes * 60))
+                write_state "$next"
+                case "$next" in
+                  restart)
+                    log "switching to restart behavior for ${minutes} minute(s)"
+                    sleep "$seconds"
+                    log "simulating crash to trigger restart"
+                    exit 1
+                    ;;
+                  notready)
+                    log "switching to notready behavior for ${minutes} minute(s)"
+                    wait_duration "$seconds" "$next"
+                    ;;
+                  *)
+                    log "switching to ok behavior for ${minutes} minute(s)"
+                    wait_duration "$seconds" "$next"
+                    ;;
+                esac
+              done
           livenessProbe:
             exec:
               command:
@@ -64,7 +167,12 @@ spec:
                 - sh
                 - -c
                 - |
-                  if [ "$BEHAVIOR" = "notready" ]; then
+                  STATE_FILE="/tmp/current_behavior"
+                  current="$BEHAVIOR"
+                  if [ -f "$STATE_FILE" ]; then
+                    current=$(cat "$STATE_FILE" 2>/dev/null || echo "$current")
+                  fi
+                  if [ "$current" = "notready" ]; then
                     exit 1
                   else
                     exit 0
@@ -102,26 +210,129 @@ spec:
           image: registry.access.redhat.com/ubi10/ubi-minimal
           env:
             - name: BEHAVIOR
-              value: "ok"
+              value: "dynamic"
+            - name: BEHAVIOR_SEED
+              value: "1646180181"
           command:
             - sh
             - -c
             - |
-              echo "[$(date -u)] starting with BEHAVIOR=$BEHAVIOR"
-              if [ "$BEHAVIOR" = "restart" ]; then
-                sleep 60
-                echo "[$(date -u)] simulating crash to trigger restart"
-                exit 1
-              elif [ "$BEHAVIOR" = "notready" ]; then
-                while true; do
-                  sleep 30
+              STATE_FILE="/tmp/current_behavior"
+              BEHAVIOR=${BEHAVIOR:-dynamic}
+              BEHAVIOR_SEED=${BEHAVIOR_SEED:-}
+              BEHAVIOR_CHOICES="ok notready restart"
+              RANDOM_COUNTER=0
+
+              log() {
+                echo "[$(date -u)] $*"
+              }
+
+              write_state() {
+                printf '%s\n' "$1" > "$STATE_FILE"
+              }
+
+              next_random() {
+                if [ -n "$BEHAVIOR_SEED" ]; then
+                  value=$(awk -v seed="$BEHAVIOR_SEED" -v step="$RANDOM_COUNTER" 'BEGIN { srand(seed + step); printf "%d\n", int(rand() * 32768) }')
+                else
+                  value=$(od -An -N2 -tu2 /dev/urandom | tr -d ' ')
+                fi
+                RANDOM_COUNTER=$((RANDOM_COUNTER + 1))
+                printf '%s\n' "${value:-0}"
+              }
+
+              choose_behavior() {
+                set -- $BEHAVIOR_CHOICES
+                count=$#
+                if [ "$count" -eq 0 ]; then
+                  printf 'ok\n'
+                  return
+                fi
+                rand=$(next_random)
+                idx=$((rand % count + 1))
+                i=1
+                for option in "$@"; do
+                  if [ "$i" -eq "$idx" ]; then
+                    printf '%s\n' "$option"
+                    return
+                  fi
+                  i=$((i + 1))
                 done
-              else
-                while true; do
-                  echo "[$(date -u)] running normally (BEHAVIOR=$BEHAVIOR)"
-                  sleep 30
+                printf '%s\n' "$1"
+              }
+
+              random_minutes() {
+                rand=$(next_random)
+                printf '%s\n' $((rand % 60 + 1))
+              }
+
+              wait_duration() {
+                duration_seconds=$1
+                behavior_label=$2
+                end=$(( $(date +%s) + duration_seconds ))
+                while [ "$(date +%s)" -lt "$end" ]; do
+                  case "$behavior_label" in
+                    ok)
+                      log "running normally (dynamic ok)"
+                      sleep 30
+                      ;;
+                    notready)
+                      sleep 30
+                      ;;
+                    *)
+                      sleep 5
+                      ;;
+                  esac
                 done
+              }
+
+              log "starting with BEHAVIOR=$BEHAVIOR"
+              write_state "$BEHAVIOR"
+
+              if [ "$BEHAVIOR" != "dynamic" ]; then
+                case "$BEHAVIOR" in
+                  restart)
+                    sleep 60
+                    log "simulating crash to trigger restart"
+                    exit 1
+                    ;;
+                  notready)
+                    while true; do
+                      sleep 30
+                    done
+                    ;;
+                  *)
+                    while true; do
+                      log "running normally (BEHAVIOR=$BEHAVIOR)"
+                      sleep 30
+                    done
+                    ;;
+                esac
               fi
+
+              log "enabling dynamic behavior changes"
+              while true; do
+                next=$(choose_behavior)
+                minutes=$(random_minutes)
+                seconds=$((minutes * 60))
+                write_state "$next"
+                case "$next" in
+                  restart)
+                    log "switching to restart behavior for ${minutes} minute(s)"
+                    sleep "$seconds"
+                    log "simulating crash to trigger restart"
+                    exit 1
+                    ;;
+                  notready)
+                    log "switching to notready behavior for ${minutes} minute(s)"
+                    wait_duration "$seconds" "$next"
+                    ;;
+                  *)
+                    log "switching to ok behavior for ${minutes} minute(s)"
+                    wait_duration "$seconds" "$next"
+                    ;;
+                esac
+              done
           livenessProbe:
             exec:
               command:
@@ -136,7 +347,192 @@ spec:
                 - sh
                 - -c
                 - |
-                  if [ "$BEHAVIOR" = "notready" ]; then
+                  STATE_FILE="/tmp/current_behavior"
+                  current="$BEHAVIOR"
+                  if [ -f "$STATE_FILE" ]; then
+                    current=$(cat "$STATE_FILE" 2>/dev/null || echo "$current")
+                  fi
+                  if [ "$current" = "notready" ]; then
+                    exit 1
+                  else
+                    exit 0
+                  fi
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: person-identity-availability-sim-3
+  namespace: business-domain
+  labels:
+    app: person-identity-availability-sim-3
+    arkit8s.simulator: "true"
+  annotations:
+    architecture.domain: business
+    architecture.function: person-identity-load-simulator
+    architecture.simulates: person-identity-verification-app-instance
+    architecture.part_of: arkit8s
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: person-identity-availability-sim-3
+  template:
+    metadata:
+      labels:
+        app: person-identity-availability-sim-3
+        arkit8s.simulator: "true"
+        arkit8s.simulates: person-identity-verification-app-instance
+    spec:
+      containers:
+        - name: availability-simulator
+          image: registry.access.redhat.com/ubi10/ubi-minimal
+          env:
+            - name: BEHAVIOR
+              value: "dynamic"
+            - name: BEHAVIOR_SEED
+              value: "689036458"
+          command:
+            - sh
+            - -c
+            - |
+              STATE_FILE="/tmp/current_behavior"
+              BEHAVIOR=${BEHAVIOR:-dynamic}
+              BEHAVIOR_SEED=${BEHAVIOR_SEED:-}
+              BEHAVIOR_CHOICES="ok notready restart"
+              RANDOM_COUNTER=0
+
+              log() {
+                echo "[$(date -u)] $*"
+              }
+
+              write_state() {
+                printf '%s\n' "$1" > "$STATE_FILE"
+              }
+
+              next_random() {
+                if [ -n "$BEHAVIOR_SEED" ]; then
+                  value=$(awk -v seed="$BEHAVIOR_SEED" -v step="$RANDOM_COUNTER" 'BEGIN { srand(seed + step); printf "%d\n", int(rand() * 32768) }')
+                else
+                  value=$(od -An -N2 -tu2 /dev/urandom | tr -d ' ')
+                fi
+                RANDOM_COUNTER=$((RANDOM_COUNTER + 1))
+                printf '%s\n' "${value:-0}"
+              }
+
+              choose_behavior() {
+                set -- $BEHAVIOR_CHOICES
+                count=$#
+                if [ "$count" -eq 0 ]; then
+                  printf 'ok\n'
+                  return
+                fi
+                rand=$(next_random)
+                idx=$((rand % count + 1))
+                i=1
+                for option in "$@"; do
+                  if [ "$i" -eq "$idx" ]; then
+                    printf '%s\n' "$option"
+                    return
+                  fi
+                  i=$((i + 1))
+                done
+                printf '%s\n' "$1"
+              }
+
+              random_minutes() {
+                rand=$(next_random)
+                printf '%s\n' $((rand % 60 + 1))
+              }
+
+              wait_duration() {
+                duration_seconds=$1
+                behavior_label=$2
+                end=$(( $(date +%s) + duration_seconds ))
+                while [ "$(date +%s)" -lt "$end" ]; do
+                  case "$behavior_label" in
+                    ok)
+                      log "running normally (dynamic ok)"
+                      sleep 30
+                      ;;
+                    notready)
+                      sleep 30
+                      ;;
+                    *)
+                      sleep 5
+                      ;;
+                  esac
+                done
+              }
+
+              log "starting with BEHAVIOR=$BEHAVIOR"
+              write_state "$BEHAVIOR"
+
+              if [ "$BEHAVIOR" != "dynamic" ]; then
+                case "$BEHAVIOR" in
+                  restart)
+                    sleep 60
+                    log "simulating crash to trigger restart"
+                    exit 1
+                    ;;
+                  notready)
+                    while true; do
+                      sleep 30
+                    done
+                    ;;
+                  *)
+                    while true; do
+                      log "running normally (BEHAVIOR=$BEHAVIOR)"
+                      sleep 30
+                    done
+                    ;;
+                esac
+              fi
+
+              log "enabling dynamic behavior changes"
+              while true; do
+                next=$(choose_behavior)
+                minutes=$(random_minutes)
+                seconds=$((minutes * 60))
+                write_state "$next"
+                case "$next" in
+                  restart)
+                    log "switching to restart behavior for ${minutes} minute(s)"
+                    sleep "$seconds"
+                    log "simulating crash to trigger restart"
+                    exit 1
+                    ;;
+                  notready)
+                    log "switching to notready behavior for ${minutes} minute(s)"
+                    wait_duration "$seconds" "$next"
+                    ;;
+                  *)
+                    log "switching to ok behavior for ${minutes} minute(s)"
+                    wait_duration "$seconds" "$next"
+                    ;;
+                esac
+              done
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - exit 0
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - |
+                  STATE_FILE="/tmp/current_behavior"
+                  current="$BEHAVIOR"
+                  if [ -f "$STATE_FILE" ]; then
+                    current=$(cat "$STATE_FILE" 2>/dev/null || echo "$current")
+                  fi
+                  if [ "$current" = "notready" ]; then
                     exit 1
                   else
                     exit 0
