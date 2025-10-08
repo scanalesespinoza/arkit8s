@@ -3,6 +3,9 @@ kind: Kustomization
 commonLabels:
   arkit8s.component: sentik
 resources:
+  - serviceaccount.yaml
+  - clusterrole.yaml
+  - clusterrolebinding.yaml
   - configmap.yaml
   - secret.yaml
   - deployment.yaml
