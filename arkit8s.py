@@ -9,6 +9,7 @@ import subprocess
 import shutil
 import sys
 import time
+from functools import wraps
 from pathlib import Path
 
 HELP_START_MARKER = "<!-- BEGIN ARKIT8S HELP -->"
@@ -39,6 +40,32 @@ def _load_usage_text() -> str:
 
 
 USAGE_TEXT = _load_usage_text()
+
+
+def _await_confirmation(message: str = "¿Desea finalizar? (Y/N) ") -> None:
+    """Prompt the user until a Y/N confirmation is provided."""
+
+    while True:
+        resp = input(message).strip().lower()
+        if resp in {"y", "n"}:
+            if resp == "y":
+                return
+            print("Operación en espera de confirmación. Responda 'Y' para finalizar.")
+        else:
+            print("Respuesta inválida. Ingrese 'Y' o 'N'.")
+
+
+def _confirm_command(func):
+    """Wrap CLI commands so they wait for a Y/N confirmation before finishing."""
+
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        result = func(*args, **kwargs)
+        print("Tarea finalizada")
+        _await_confirmation("¿Desea salir? (Y/N) ")
+        return result
+
+    return wrapper
 
 
 def run(cmd: list[str], check: bool = True) -> subprocess.CompletedProcess:
@@ -1052,45 +1079,45 @@ def main() -> int:
 
     p_install = sub.add_parser("install", help="Install manifests via oc apply")
     p_install.add_argument("--env", default="sandbox", help="Target environment")
-    p_install.set_defaults(func=install)
+    p_install.set_defaults(func=_confirm_command(install))
 
     p_uninstall = sub.add_parser("uninstall", help="Delete manifests")
-    p_uninstall.set_defaults(func=uninstall)
+    p_uninstall.set_defaults(func=_confirm_command(uninstall))
 
     p_cleanup_all = sub.add_parser(
         "cleanup",
         help="Eliminar todos los recursos de arkit8s, incluidos los namespaces",
     )
     p_cleanup_all.add_argument("--env", default="sandbox", help="Entorno a limpiar")
-    p_cleanup_all.set_defaults(func=cleanup)
+    p_cleanup_all.set_defaults(func=_confirm_command(cleanup))
 
     p_watch = sub.add_parser("watch", help="Watch cluster status")
     p_watch.add_argument("--minutes", type=int, default=5, help="Duration in minutes")
     p_watch.add_argument("--detail", choices=["default", "detailed", "all"], default="default")
     p_watch.add_argument("--env", default="sandbox")
-    p_watch.set_defaults(func=watch)
+    p_watch.set_defaults(func=_confirm_command(watch))
 
     p_validate = sub.add_parser("validate-cluster", help="Validate cluster state")
     p_validate.add_argument("--env", default="sandbox")
-    p_validate.set_defaults(func=validate_cluster)
+    p_validate.set_defaults(func=_confirm_command(validate_cluster))
 
     p_yaml = sub.add_parser("validate-yaml", help="Validate YAML syntax")
-    p_yaml.set_defaults(func=validate_yaml)
+    p_yaml.set_defaults(func=_confirm_command(validate_yaml))
 
     p_report = sub.add_parser("report", help="Generate architecture report")
-    p_report.set_defaults(func=report)
+    p_report.set_defaults(func=_confirm_command(report))
 
     p_meta = sub.add_parser(
         "validate-metadata",
         help="Check that calls and invoked_by annotations match and align with NetworkPolicies",
     )
-    p_meta.set_defaults(func=validate_metadata)
+    p_meta.set_defaults(func=_confirm_command(validate_metadata))
 
     p_gen_np = sub.add_parser(
         "generate-network-policies",
         help="Output NetworkPolicy manifests based on metadata",
     )
-    p_gen_np.set_defaults(func=generate_network_policies)
+    p_gen_np.set_defaults(func=_confirm_command(generate_network_policies))
 
     p_sim = sub.add_parser(
         "generate-load-simulators",
@@ -1119,13 +1146,13 @@ def main() -> int:
         type=int,
         help="Optional random seed to obtain deterministic behavior assignments",
     )
-    p_sim.set_defaults(func=generate_load_simulators)
+    p_sim.set_defaults(func=_confirm_command(generate_load_simulators))
 
     p_list_sim = sub.add_parser(
         "list-load-simulators",
         help="List simulator deployments running in the cluster",
     )
-    p_list_sim.set_defaults(func=list_load_simulators)
+    p_list_sim.set_defaults(func=_confirm_command(list_load_simulators))
 
     p_cleanup_sims = sub.add_parser(
         "cleanup-load-simulators",
@@ -1147,7 +1174,7 @@ def main() -> int:
         action="store_true",
         help="Eliminar la rama local indicada tras limpiar los manifiestos",
     )
-    p_cleanup_sims.set_defaults(func=cleanup_load_simulators)
+    p_cleanup_sims.set_defaults(func=_confirm_command(cleanup_load_simulators))
 
     p_new = sub.add_parser(
         "create-component",
@@ -1175,7 +1202,7 @@ def main() -> int:
         default="component-instances",
         help="Local git branch to store generated manifests",
     )
-    p_new.set_defaults(func=create_component)
+    p_new.set_defaults(func=_confirm_command(create_component))
 
     args = parser.parse_args()
     if not hasattr(args, "func"):
@@ -1186,11 +1213,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     code = main()
-    print("Tarea finalizada")
-    while True:
-        resp = input("\u00bfDesea Salir? (Y/N) ").strip().lower()
-        if resp == "y":
-            break
-        if resp == "n":
-            continue
     sys.exit(code)
