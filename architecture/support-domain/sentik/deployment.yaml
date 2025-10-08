@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sentik
+  namespace: support-domain
+  labels:
+    app: sentik
+  annotations:
+    architecture.domain: support
+    architecture.function: sentik
+    architecture.invoked_by: platform-operators
+    architecture.calls: openshift-api, microsoft-teams
+    architecture.part_of: arkit8s
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sentik
+  template:
+    metadata:
+      labels:
+        app: sentik
+    spec:
+      containers:
+        - name: sentik
+          image: quay.io/sergio_canales_e/quarkus/txt-report-frontend:1.0.9
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: JAVA_OPTIONS
+              value: "-Dquarkus.http.host=0.0.0.0"
+            - name: FRONTEND_URL
+              value: "http://sentik:8080"
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8080
+            initialDelaySeconds: 0
+            periodSeconds: 1
+            failureThreshold: 1
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 8080
+            initialDelaySeconds: 1
+            periodSeconds: 2
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
