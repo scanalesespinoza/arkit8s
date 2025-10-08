@@ -38,7 +38,8 @@ spec:
                 apt-get update && apt-get install -y --no-install-recommends git ca-certificates && rm -rf /var/lib/apt/lists/*;
               fi;
               git clone --depth 1 https://github.com/scanalesespinoza/kubeland.git /tmp/src;
-              mvn -f /tmp/src -DskipTests package;
+              mkdir -p /tmp/m2-repo;
+              mvn -f /tmp/src -Dmaven.repo.local=/tmp/m2-repo -DskipTests package;
               cp /tmp/src/target/kubeland-*.jar /work/application/app.jar
           volumeMounts:
             - name: application-binary
