@@ -9,10 +9,33 @@ import sys
 import time
 from pathlib import Path
 
+HELP_START_MARKER = "<!-- BEGIN ARKIT8S HELP -->"
+HELP_END_MARKER = "<!-- END ARKIT8S HELP -->"
+
 REPO_ROOT = Path(__file__).resolve().parent
 ARCH_DIR = REPO_ROOT / "architecture"
 UTIL_DIR = REPO_ROOT / "utilities"
 ENV_DIR = REPO_ROOT / "environments"
+
+
+def _load_usage_text() -> str:
+    """Return the README help block so CLI help matches documentation."""
+    readme = REPO_ROOT / "README.md"
+    try:
+        content = readme.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return "arkit8s utility CLI"
+
+    start = content.find(HELP_START_MARKER)
+    end = content.find(HELP_END_MARKER)
+    if start == -1 or end == -1 or end <= start:
+        return "arkit8s utility CLI"
+
+    help_block = content[start + len(HELP_START_MARKER):end]
+    return help_block.strip() or "arkit8s utility CLI"
+
+
+USAGE_TEXT = _load_usage_text()
 
 
 def run(cmd: list[str], check: bool = True) -> subprocess.CompletedProcess:
@@ -595,7 +618,10 @@ spec:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="arkit8s utility CLI")
+    parser = argparse.ArgumentParser(
+        description=USAGE_TEXT,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     sub = parser.add_subparsers(dest="command")
 
     p_install = sub.add_parser("install", help="Install manifests via oc apply")
