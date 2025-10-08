@@ -1,0 +1,96 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: architects-visualization
+  namespace: support-domain
+  labels:
+    app: architects-visualization
+    app.kubernetes.io/name: architects-visualization
+    app.kubernetes.io/component: control-plane
+    app.kubernetes.io/part-of: arkit8s
+  annotations:
+    architecture.domain: support
+    architecture.function: architecture-visualization
+    architecture.part_of: arkit8s
+    architecture.calls: architects-console-commands
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: architects-visualization
+  template:
+    metadata:
+      labels:
+        app: architects-visualization
+    spec:
+      initContainers:
+        - name: build-architects-visualization
+          image: docker.io/library/maven:3.9.6-eclipse-temurin-17
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -c
+          args:
+            - >-
+              set -euo pipefail;
+              if ! command -v git >/dev/null 2>&1; then
+                apt-get update && apt-get install -y --no-install-recommends git ca-certificates && rm -rf /var/lib/apt/lists/*;
+              fi;
+              git clone --depth 1 https://github.com/scanalesespinoza/kubeland.git /tmp/src;
+              mvn -f /tmp/src -DskipTests package;
+              cp /tmp/src/target/kubeland-*.jar /work/application/app.jar
+          volumeMounts:
+            - name: application-binary
+              mountPath: /work/application
+      containers:
+        - name: web-console
+          image: eclipse-temurin:17-jre
+          imagePullPolicy: IfNotPresent
+          command:
+            - java
+          args:
+            - "-Dquarkus.http.host=0.0.0.0"
+            - "-Dquarkus.config.locations=file:/deployments/config/application.properties"
+            - "-jar"
+            - /work/application/app.jar
+          env:
+            - name: ARKIT8S_CONSOLE_COMMANDS
+              value: /opt/arkit8s/commands/commands.json
+            - name: QUARKUS_PROFILE
+              value: prod
+          ports:
+            - containerPort: 8080
+              name: http
+          volumeMounts:
+            - name: ui-config
+              mountPath: /deployments/config
+            - name: cli-commands
+              mountPath: /opt/arkit8s/commands
+              readOnly: true
+            - name: application-binary
+              mountPath: /work/application
+          readinessProbe:
+            httpGet:
+              path: /q/health/ready
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /q/health/live
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 20
+      volumes:
+        - name: ui-config
+          configMap:
+            name: architects-visualization-ui
+        - name: cli-commands
+          configMap:
+            name: architects-console-commands
+            items:
+              - key: commands.json
+                path: commands.json
+        - name: application-binary
+          emptyDir: {}

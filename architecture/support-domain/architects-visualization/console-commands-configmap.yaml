@@ -1,0 +1,65 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: architects-console-commands
+  namespace: support-domain
+  labels:
+    app.kubernetes.io/name: architects-visualization
+    app.kubernetes.io/component: control-plane
+    app.kubernetes.io/part-of: arkit8s
+  annotations:
+    architecture.domain: support
+    architecture.function: architecture-visualization
+    architecture.part_of: arkit8s
+data:
+  commands.json: "{\n  \"commands\": [\n    {\n      \"name\": \"cleanup\",\n    \
+    \  \"summary\": \"Borra namespaces y recursos generados por arkit8s para un reinicio\
+    \ limpio\",\n      \"usage\": \"usage: arkit8s.py cleanup [-h] [--env ENV]\"\n\
+    \    },\n    {\n      \"name\": \"cleanup-default\",\n      \"summary\": \"Retira\
+    \ el escenario por defecto y limpia por completo el entorno sandbox\",\n     \
+    \ \"usage\": \"usage: arkit8s.py cleanup-default [-h]\"\n    },\n    {\n     \
+    \ \"name\": \"cleanup-load-simulators\",\n      \"summary\": \"Elimina simuladores\
+    \ y limpia manifiestos generados localmente\",\n      \"usage\": \"usage: arkit8s.py\
+    \ cleanup-load-simulators [-h] [--targets {api,company-identity,person-identity,ui}\
+    \ [{api,company-identity,person-identity,ui} ...]] [--branch BRANCH] [--delete-branch]\"\
+    \n    },\n    {\n      \"name\": \"create-component\",\n      \"summary\": \"\
+    Genera una instancia de componente basada en el inventario\",\n      \"usage\"\
+    : \"usage: arkit8s.py create-component [-h] --type TYPE --domain {business,support,shared}\
+    \ [--function FUNCTION] [--depends-incluster DEPENDS_INCLUSTER] [--depends-outcluster\
+    \ DEPENDS_OUTCLUSTER] [--branch BRANCH] name\"\n    },\n    {\n      \"name\"\
+    : \"generate-load-simulators\",\n      \"summary\": \"Crea despliegues sint\xE9\
+    ticos para simular carga y fallas controladas\",\n      \"usage\": \"usage: arkit8s.py\
+    \ generate-load-simulators [-h] [--count COUNT] [--targets {api,company-identity,person-identity,ui}\
+    \ [{api,company-identity,person-identity,ui} ...]] [--branch BRANCH] [--seed SEED]\
+    \ [--behavior {dynamic,ok,notready,restart}]\"\n    },\n    {\n      \"name\"\
+    : \"generate-network-policies\",\n      \"summary\": \"Deriva NetworkPolicies\
+    \ a partir de las anotaciones de arquitectura\",\n      \"usage\": \"usage: arkit8s.py\
+    \ generate-network-policies [-h]\"\n    },\n    {\n      \"name\": \"install\"\
+    ,\n      \"summary\": \"Aplica los manifiestos base y del entorno seleccionado\
+    \ usando oc apply\",\n      \"usage\": \"usage: arkit8s.py install [-h] [--env\
+    \ ENV]\"\n    },\n    {\n      \"name\": \"install-default\",\n      \"summary\"\
+    : \"Despliega el entorno sandbox junto al escenario por defecto y simuladores\"\
+    ,\n      \"usage\": \"usage: arkit8s.py install-default [-h] [--simulators SIMULATORS]\
+    \ [--seed SEED]\"\n    },\n    {\n      \"name\": \"list-load-simulators\",\n\
+    \      \"summary\": \"Lista los simuladores de carga desplegados en el cl\xFA\
+    ster\",\n      \"usage\": \"usage: arkit8s.py list-load-simulators [-h]\"\n  \
+    \  },\n    {\n      \"name\": \"report\",\n      \"summary\": \"Genera un reporte\
+    \ Markdown con la trazabilidad de componentes\",\n      \"usage\": \"usage: arkit8s.py\
+    \ report [-h]\"\n    },\n    {\n      \"name\": \"sync-web-console\",\n      \"\
+    summary\": \"Exporta la definici\xF3n de comandos para el plano de control web\"\
+    ,\n      \"usage\": \"usage: arkit8s.py sync-web-console [-h]\"\n    },\n    {\n\
+    \      \"name\": \"uninstall\",\n      \"summary\": \"Elimina todos los manifiestos\
+    \ de arquitectura sin fallar si ya no existen\",\n      \"usage\": \"usage: arkit8s.py\
+    \ uninstall [-h]\"\n    },\n    {\n      \"name\": \"validate-cluster\",\n   \
+    \   \"summary\": \"Valida que namespaces, deployments y pods est\xE9n sincronizados\"\
+    ,\n      \"usage\": \"usage: arkit8s.py validate-cluster [-h] [--env ENV]\"\n\
+    \    },\n    {\n      \"name\": \"validate-metadata\",\n      \"summary\": \"\
+    Comprueba consistencia entre dependencias declaradas y anotaciones\",\n      \"\
+    usage\": \"usage: arkit8s.py validate-metadata [-h]\"\n    },\n    {\n      \"\
+    name\": \"validate-yaml\",\n      \"summary\": \"Revisa que todos los YAML del\
+    \ repositorio sean sint\xE1cticamente v\xE1lidos\",\n      \"usage\": \"usage:\
+    \ arkit8s.py validate-yaml [-h]\"\n    },\n    {\n      \"name\": \"watch\",\n\
+    \      \"summary\": \"Monitorea continuamente la sincron\xEDa del cl\xFAster con\
+    \ los manifiestos\",\n      \"usage\": \"usage: arkit8s.py watch [-h] [--minutes\
+    \ MINUTES] [--detail {default,detailed,all}] [--env ENV]\"\n    }\n  ],\n  \"\
+    generated_at\": \"2025-10-08T21:23:52Z\"\n}"

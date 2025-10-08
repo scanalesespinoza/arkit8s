@@ -2,6 +2,8 @@
 
 Este repositorio despliega Red Hat Build of Keycloak sobre OpenShift Local (CRC) usando Kustomize y aporta un conjunto de utilidades operativas agrupadas en el CLI `arkit8s.py`.
 
+Inspirados por el proyecto [Kubeland Desktop Client](https://github.com/scanalesespinoza/kubeland), evolucionamos la experiencia hacia una visualización web nativa llamada **Architects Visualization**. El plano de control se construye con Quarkus, Qute y compilaciones *native image* para ofrecer un panel ligero que sincroniza en tiempo real las capacidades del CLI con una consola web accesible desde OpenShift.
+
 ## Requisitos generales
 
 - CRC u otro clúster OpenShift en ejecución y accesible.
@@ -68,6 +70,14 @@ El script `arkit8s.py` centraliza las tareas operativas de la plataforma. Todos 
 - `list-load-simulators` – consulta en el clúster todos los Deployments etiquetados como simuladores (`arkit8s.simulator=true`) e imprime el namespace, nombre y comportamiento (`BEHAVIOR`) asignado a cada uno.
 - `cleanup-load-simulators [--branch <nombre>] [--targets <componentes>]` – elimina los simuladores del clúster, borra los manifiestos `load-simulators.yaml` generados por el comando y retira su referencia de los `kustomization.yaml`.  Después de ejecutar la limpieza, cambia a tu rama principal (`git switch main`) y elimina la rama temporal (`git branch -D <nombre>`).
 - `create-component --type <tipo> --domain <business|support|shared> --branch <rama>` – crea una instancia de componente a partir del inventario (`component_inventory.yaml`), generando Deployment/Service/Kustomization y actualizando el `kustomization.yaml` del dominio.
+- `sync-web-console` – sincroniza la metadata del CLI con la consola web de Architects Visualization generando el `ConfigMap` consumido por Quarkus/Qute.
+
+### Visualización Architects
+
+1. Ejecuta `python arkit8s.py sync-web-console` tras añadir o modificar comandos del CLI. Este paso genera `architecture/support-domain/architects-visualization/console-commands-configmap.yaml` con la descripción y el `usage` de cada subcomando.
+2. Aplica los manifiestos (`./arkit8s.py install --env sandbox`) para desplegar el `Deployment` que compila Kubeland en un `initContainer` Maven y ejecuta el `app.jar` resultante sobre `eclipse-temurin:17-jre`, montando tanto la configuración Qute como los comandos generados.
+3. Expone el servicio `architects-visualization` mediante un `Route` o `oc port-forward svc/architects-visualization 8080` para acceder a la interfaz inspirada en Kubeland. El `Deployment` incluye un `initContainer` que clona `scanalesespinoza/kubeland`, empaqueta la aplicación Quarkus y la monta como `app.jar` dentro del contenedor principal basado en `eclipse-temurin:17-jre`, garantizando que el binario exista en `/work/application/app.jar` antes de iniciar la consola.
+4. Utiliza la consola web para invocar acciones del CLI desde el navegador, manteniendo sincronía entre operaciones declarativas y observabilidad del plano de control.
 
 #### Ejemplos de uso de simuladores de carga
 
