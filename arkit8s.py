@@ -91,6 +91,36 @@ def uninstall(_args: argparse.Namespace) -> int:
     return 0
 
 
+def cleanup(args: argparse.Namespace) -> int:
+    """Remove all arkit8s resources, including namespaces, for a fresh start."""
+
+    env_dir = ENV_DIR / args.env
+    status = 0
+
+    if env_dir.exists():
+        proc = run(["oc", "delete", "--ignore-not-found", "-k", str(env_dir)], check=False)
+        if proc.returncode != 0:
+            status = proc.returncode
+    else:
+        print(
+            f"⚠️  El entorno {args.env} no existe en este repositorio; se omite su limpieza.",
+            file=sys.stderr,
+        )
+
+    proc = run(["oc", "delete", "--ignore-not-found", "-k", str(ARCH_DIR)], check=False)
+    if proc.returncode != 0:
+        status = proc.returncode
+
+    for namespace in _get_namespaces():
+        res = subprocess.run(
+            ["oc", "delete", "namespace", namespace, "--ignore-not-found"],
+            check=False,
+        )
+        status = res.returncode if status == 0 and res.returncode != 0 else status
+
+    return status
+
+
 def _get_namespaces() -> list[str]:
     names = []
     for path in sorted((ARCH_DIR / "bootstrap").glob("00-namespace-*.yaml")):
@@ -98,10 +128,68 @@ def _get_namespaces() -> list[str]:
     return names
 
 
+def _collect_component_namespaces() -> set[str]:
+    """Return namespaces referenced by manifests in the architecture tree."""
+
+    import yaml  # type: ignore
+
+    namespaces: set[str] = set()
+    for manifest in ARCH_DIR.rglob("*.yaml"):
+        if manifest.name.startswith("00-namespace-"):
+            continue
+        try:
+            docs = list(yaml.safe_load_all(manifest.read_text(encoding="utf-8")))
+        except yaml.YAMLError:
+            continue
+        for doc in docs:
+            if not isinstance(doc, dict):
+                continue
+            metadata = doc.get("metadata")
+            if not isinstance(metadata, dict):
+                continue
+            namespace = metadata.get("namespace")
+            if isinstance(namespace, str) and namespace:
+                namespaces.add(namespace)
+    return namespaces
+
+
+def _collect_serviceaccounts() -> set[tuple[str, str]]:
+    """Return tuples of (namespace, name) for ServiceAccount manifests."""
+
+    import yaml  # type: ignore
+
+    serviceaccounts: set[tuple[str, str]] = set()
+    for manifest in ARCH_DIR.rglob("*.yaml"):
+        try:
+            docs = list(yaml.safe_load_all(manifest.read_text(encoding="utf-8")))
+        except yaml.YAMLError:
+            continue
+        for doc in docs:
+            if not isinstance(doc, dict) or doc.get("kind") != "ServiceAccount":
+                continue
+            metadata = doc.get("metadata")
+            if not isinstance(metadata, dict):
+                continue
+            name = metadata.get("name")
+            namespace = metadata.get("namespace")
+            if isinstance(name, str) and name and isinstance(namespace, str) and namespace:
+                serviceaccounts.add((namespace, name))
+    return serviceaccounts
+
+
 def validate_cluster(args: argparse.Namespace, quiet: bool = False) -> int:
     env = args.env
     env_dir = ENV_DIR / env
     namespaces = _get_namespaces()
+    component_namespaces = _collect_component_namespaces()
+    missing_namespaces = sorted(component_namespaces - set(namespaces))
+    if missing_namespaces:
+        print(
+            "Componentes referencian namespaces que no forman parte del bootstrap: "
+            + ", ".join(missing_namespaces),
+            file=sys.stderr,
+        )
+        return 1
     if not quiet:
         print("🔍 Verificando namespaces...")
     for ns in namespaces:
@@ -147,6 +235,21 @@ def validate_cluster(args: argparse.Namespace, quiet: bool = False) -> int:
             if status not in {"Running", "Completed"} or restarts > 0:
                 print(f"Pod con problemas en {ns}: {line}", file=sys.stderr)
                 return 1
+    serviceaccounts = _collect_serviceaccounts()
+    if serviceaccounts and not quiet:
+        print("🪪 Verificando ServiceAccounts requeridas...")
+    for namespace, name in sorted(serviceaccounts):
+        res = subprocess.run(
+            ["oc", "get", "sa", name, "-n", namespace],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        if res.returncode != 0:
+            print(
+                f"ServiceAccount {name} no existe en el namespace {namespace}",
+                file=sys.stderr,
+            )
+            return 1
     if not quiet:
         print(f"🔄 Verificando sincronización de manifiestos para {env}...")
     if shutil.which("diff") is None:
@@ -954,6 +1057,13 @@ def main() -> int:
     p_uninstall = sub.add_parser("uninstall", help="Delete manifests")
     p_uninstall.set_defaults(func=uninstall)
 
+    p_cleanup_all = sub.add_parser(
+        "cleanup",
+        help="Eliminar todos los recursos de arkit8s, incluidos los namespaces",
+    )
+    p_cleanup_all.add_argument("--env", default="sandbox", help="Entorno a limpiar")
+    p_cleanup_all.set_defaults(func=cleanup)
+
     p_watch = sub.add_parser("watch", help="Watch cluster status")
     p_watch.add_argument("--minutes", type=int, default=5, help="Duration in minutes")
     p_watch.add_argument("--detail", choices=["default", "detailed", "all"], default="default")
@@ -1017,27 +1127,27 @@ def main() -> int:
     )
     p_list_sim.set_defaults(func=list_load_simulators)
 
-    p_cleanup = sub.add_parser(
+    p_cleanup_sims = sub.add_parser(
         "cleanup-load-simulators",
         help="Remove generated simulator manifests and cluster resources",
     )
-    p_cleanup.add_argument(
+    p_cleanup_sims.add_argument(
         "--targets",
         nargs="+",
         choices=sorted(BUSINESS_SIM_TARGETS.keys()),
         help="Componentes para los que se limpiarán los manifiestos",
     )
-    p_cleanup.add_argument(
+    p_cleanup_sims.add_argument(
         "--branch",
         default="load-simulators",
         help="Rama local que contiene los manifiestos generados",
     )
-    p_cleanup.add_argument(
+    p_cleanup_sims.add_argument(
         "--delete-branch",
         action="store_true",
         help="Eliminar la rama local indicada tras limpiar los manifiestos",
     )
-    p_cleanup.set_defaults(func=cleanup_load_simulators)
+    p_cleanup_sims.set_defaults(func=cleanup_load_simulators)
 
     p_new = sub.add_parser(
         "create-component",

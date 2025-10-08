@@ -53,8 +53,9 @@ El script `arkit8s.py` centraliza las tareas operativas de la plataforma. Todos 
 
 > Todos los subcomandos aceptan `--help` para mostrar su resumen puntual.
 
-- `install [--env <nombre>]` – aplica los manifiestos base (`architecture/bootstrap`) y los del entorno indicado en `environments/`. Útil para una instalación inicial o para reconciliar cambios.
+- `install [--env <nombre>]` – aplica los manifiestos base (`architecture/bootstrap`) y los del entorno indicado en `environments/`, verificando que existan los namespaces esperados y las ServiceAccounts que habilitan componentes como Sentik.
 - `uninstall` – elimina los recursos definidos en `architecture/` (incluyendo bootstrap). No falla si los recursos ya no existen.
+- `cleanup [--env <nombre>]` – borra todos los recursos del entorno indicado, incluidos los namespaces creados por `bootstrap`, dejando el clúster listo para una instalación desde cero.
 - `validate-cluster [--env <nombre>]` – revisa namespaces, deployments, pods y sincronización (`oc diff`) para asegurar que el estado del clúster coincide con los manifiestos.
 - `watch [--env <nombre>] [--minutes <n>] [--detail <default|detailed|all>]` – ejecuta validaciones continuas cada 30 segundos durante el tiempo indicado. Con `--detail` distinto de `default` imprime el inventario de recursos monitoreados.
 - `validate-yaml` – recorre el repositorio y verifica que todos los YAML (excepto `kustomization.yaml`) sean sintácticamente válidos.
