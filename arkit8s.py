@@ -25,6 +25,28 @@ DEFAULT_ENV = "sandbox"
 DEFAULT_SCENARIO = "default"
 DEFAULT_SIMULATOR_COUNT = 10
 
+CLI_COMMANDS_HELP: dict[str, str] = {
+    "install": "Aplica los manifiestos base y del entorno seleccionado usando oc apply",
+    "uninstall": "Elimina todos los manifiestos de arquitectura sin fallar si ya no existen",
+    "cleanup": "Borra namespaces y recursos generados por arkit8s para un reinicio limpio",
+    "install-default": "Despliega el entorno sandbox junto al escenario por defecto y simuladores",
+    "cleanup-default": "Retira el escenario por defecto y limpia por completo el entorno sandbox",
+    "watch": "Monitorea continuamente la sincronía del clúster con los manifiestos",
+    "validate-cluster": "Valida que namespaces, deployments y pods estén sincronizados",
+    "validate-yaml": "Revisa que todos los YAML del repositorio sean sintácticamente válidos",
+    "report": "Genera un reporte Markdown con la trazabilidad de componentes",
+    "validate-metadata": "Comprueba consistencia entre dependencias declaradas y anotaciones",
+    "generate-network-policies": "Deriva NetworkPolicies a partir de las anotaciones de arquitectura",
+    "generate-load-simulators": "Crea despliegues sintéticos para simular carga y fallas controladas",
+    "list-load-simulators": "Lista los simuladores de carga desplegados en el clúster",
+    "cleanup-load-simulators": "Elimina simuladores y limpia manifiestos generados localmente",
+    "create-component": "Genera una instancia de componente basada en el inventario",
+    "sync-web-console": "Exporta la definición de comandos para el plano de control web",
+}
+
+WEB_CONSOLE_DIR = ARCH_DIR / "support-domain" / "architects-visualization"
+WEB_CONSOLE_COMMANDS_CONFIGMAP = WEB_CONSOLE_DIR / "console-commands-configmap.yaml"
+
 
 def _load_usage_text() -> str:
     """Return the README help block so CLI help matches documentation."""
@@ -197,6 +219,240 @@ def _collect_component_namespaces() -> set[str]:
             if isinstance(namespace, str) and namespace:
                 namespaces.add(namespace)
     return namespaces
+
+
+def sync_web_console(_args: argparse.Namespace) -> int:
+    """Export CLI command metadata for the Quarkus web control plane."""
+
+    yaml = _ensure_yaml_module()
+    parser = build_parser()
+    commands: list[dict[str, str]] = []
+
+    sub_actions = [
+        action
+        for action in parser._actions
+        if isinstance(action, argparse._SubParsersAction)
+    ]
+
+    for sub_action in sub_actions:
+        for name, subparser in sorted(sub_action.choices.items()):
+            usage = " ".join(subparser.format_usage().split())
+            summary = CLI_COMMANDS_HELP.get(name, usage)
+            commands.append(
+                {
+                    "name": name,
+                    "summary": summary,
+                    "usage": usage,
+                }
+            )
+
+    payload = {
+        "apiVersion": "v1",
+        "kind": "ConfigMap",
+        "metadata": {
+            "name": "architects-console-commands",
+            "namespace": "support-domain",
+            "labels": {
+                "app.kubernetes.io/name": "architects-visualization",
+                "app.kubernetes.io/component": "control-plane",
+                "app.kubernetes.io/part-of": "arkit8s",
+            },
+            "annotations": {
+                "architecture.domain": "support",
+                "architecture.function": "architecture-visualization",
+                "architecture.part_of": "arkit8s",
+            },
+        },
+        "data": {
+            "commands.json": json.dumps(
+                {
+                    "commands": commands,
+                    "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+        },
+    }
+
+    WEB_CONSOLE_DIR.mkdir(parents=True, exist_ok=True)
+    WEB_CONSOLE_COMMANDS_CONFIGMAP.write_text(
+        yaml.dump(payload, sort_keys=False),
+        encoding="utf-8",
+    )
+    print(f"📦 ConfigMap de comandos actualizada en {WEB_CONSOLE_COMMANDS_CONFIGMAP}")
+    return 0
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        description=USAGE_TEXT,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    sub = parser.add_subparsers(dest="command")
+
+    p_install = sub.add_parser("install", help=CLI_COMMANDS_HELP["install"])
+    p_install.add_argument("--env", default="sandbox", help="Target environment")
+    p_install.set_defaults(func=_confirm_command(install))
+
+    p_uninstall = sub.add_parser("uninstall", help=CLI_COMMANDS_HELP["uninstall"])
+    p_uninstall.set_defaults(func=_confirm_command(uninstall))
+
+    p_cleanup_all = sub.add_parser(
+        "cleanup",
+        help=CLI_COMMANDS_HELP["cleanup"],
+    )
+    p_cleanup_all.add_argument("--env", default="sandbox", help="Entorno a limpiar")
+    p_cleanup_all.set_defaults(func=_confirm_command(cleanup))
+
+    p_install_default = sub.add_parser(
+        "install-default",
+        help=CLI_COMMANDS_HELP["install-default"],
+    )
+    p_install_default.add_argument(
+        "--simulators",
+        type=int,
+        default=DEFAULT_SIMULATOR_COUNT,
+        help="Cantidad de simuladores aleatorios a desplegar (por defecto 10)",
+    )
+    p_install_default.add_argument(
+        "--seed",
+        type=int,
+        help="Semilla opcional para obtener una distribución determinista de simuladores",
+    )
+    p_install_default.set_defaults(func=_confirm_command(install_default))
+
+    p_cleanup_default = sub.add_parser(
+        "cleanup-default",
+        help=CLI_COMMANDS_HELP["cleanup-default"],
+    )
+    p_cleanup_default.set_defaults(func=_confirm_command(cleanup_default))
+
+    p_watch = sub.add_parser("watch", help=CLI_COMMANDS_HELP["watch"])
+    p_watch.add_argument("--minutes", type=int, default=5, help="Duration in minutes")
+    p_watch.add_argument("--detail", choices=["default", "detailed", "all"], default="default")
+    p_watch.add_argument("--env", default="sandbox")
+    p_watch.set_defaults(func=_confirm_command(watch))
+
+    p_validate = sub.add_parser("validate-cluster", help=CLI_COMMANDS_HELP["validate-cluster"])
+    p_validate.add_argument("--env", default="sandbox")
+    p_validate.set_defaults(func=_confirm_command(validate_cluster))
+
+    p_yaml = sub.add_parser("validate-yaml", help=CLI_COMMANDS_HELP["validate-yaml"])
+    p_yaml.set_defaults(func=_confirm_command(validate_yaml))
+
+    p_report = sub.add_parser("report", help=CLI_COMMANDS_HELP["report"])
+    p_report.set_defaults(func=_confirm_command(report))
+
+    p_meta = sub.add_parser(
+        "validate-metadata",
+        help=CLI_COMMANDS_HELP["validate-metadata"],
+    )
+    p_meta.set_defaults(func=_confirm_command(validate_metadata))
+
+    p_gen_np = sub.add_parser(
+        "generate-network-policies",
+        help=CLI_COMMANDS_HELP["generate-network-policies"],
+    )
+    p_gen_np.set_defaults(func=_confirm_command(generate_network_policies))
+
+    p_sim = sub.add_parser(
+        "generate-load-simulators",
+        help=CLI_COMMANDS_HELP["generate-load-simulators"],
+    )
+    p_sim.add_argument(
+        "--count",
+        type=int,
+        default=3,
+        help="Number of simulator deployments per target (default: 3)",
+    )
+    p_sim.add_argument(
+        "--targets",
+        nargs="+",
+        choices=sorted(BUSINESS_SIM_TARGETS.keys()),
+        default=sorted(BUSINESS_SIM_TARGETS.keys()),
+        help="Business components to simulate (default: all)",
+    )
+    p_sim.add_argument(
+        "--branch",
+        default="load-simulators",
+        help="Local git branch to store generated manifests",
+    )
+    p_sim.add_argument(
+        "--seed",
+        type=int,
+        help="Optional random seed to obtain deterministic behavior scheduling",
+    )
+    p_sim.add_argument(
+        "--behavior",
+        choices=["dynamic", "ok", "notready", "restart"],
+        help="Override the runtime behavior of generated simulators (default: dynamic)",
+    )
+    p_sim.set_defaults(func=_confirm_command(generate_load_simulators))
+
+    p_list_sim = sub.add_parser(
+        "list-load-simulators",
+        help=CLI_COMMANDS_HELP["list-load-simulators"],
+    )
+    p_list_sim.set_defaults(func=_confirm_command(list_load_simulators))
+
+    p_cleanup_sims = sub.add_parser(
+        "cleanup-load-simulators",
+        help=CLI_COMMANDS_HELP["cleanup-load-simulators"],
+    )
+    p_cleanup_sims.add_argument(
+        "--targets",
+        nargs="+",
+        choices=sorted(BUSINESS_SIM_TARGETS.keys()),
+        help="Componentes para los que se limpiarán los manifiestos",
+    )
+    p_cleanup_sims.add_argument(
+        "--branch",
+        default="load-simulators",
+        help="Rama local que contiene los manifiestos generados",
+    )
+    p_cleanup_sims.add_argument(
+        "--delete-branch",
+        action="store_true",
+        help="Eliminar la rama local indicada tras limpiar los manifiestos",
+    )
+    p_cleanup_sims.set_defaults(func=_confirm_command(cleanup_load_simulators))
+
+    p_new = sub.add_parser(
+        "create-component",
+        help=CLI_COMMANDS_HELP["create-component"],
+    )
+    p_new.add_argument("name", help="Component instance name")
+    p_new.add_argument("--type", required=True, help="Component type from inventory")
+    p_new.add_argument(
+        "--domain",
+        required=True,
+        choices=["business", "support", "shared"],
+        help="Target domain short name",
+    )
+    p_new.add_argument("--function", help="Override function annotation")
+    p_new.add_argument(
+        "--depends-incluster",
+        help="Comma-separated list of in-cluster dependencies (e.g. api-user-svc, integration-token-svc)",
+    )
+    p_new.add_argument(
+        "--depends-outcluster",
+        help="Comma-separated list of out-of-cluster dependencies (e.g. https://auth0.example.com)",
+    )
+    p_new.add_argument(
+        "--branch",
+        default="component-instances",
+        help="Local git branch to store generated manifests",
+    )
+    p_new.set_defaults(func=_confirm_command(create_component))
+
+    p_sync = sub.add_parser(
+        "sync-web-console",
+        help=CLI_COMMANDS_HELP["sync-web-console"],
+    )
+    p_sync.set_defaults(func=sync_web_console)
+
+    return parser
 
 
 def _collect_serviceaccounts() -> set[tuple[str, str]]:
@@ -1264,167 +1520,7 @@ spec:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(
-        description=USAGE_TEXT,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
-    sub = parser.add_subparsers(dest="command")
-
-    p_install = sub.add_parser("install", help="Install manifests via oc apply")
-    p_install.add_argument("--env", default="sandbox", help="Target environment")
-    p_install.set_defaults(func=_confirm_command(install))
-
-    p_uninstall = sub.add_parser("uninstall", help="Delete manifests")
-    p_uninstall.set_defaults(func=_confirm_command(uninstall))
-
-    p_cleanup_all = sub.add_parser(
-        "cleanup",
-        help="Eliminar todos los recursos de arkit8s, incluidos los namespaces",
-    )
-    p_cleanup_all.add_argument("--env", default="sandbox", help="Entorno a limpiar")
-    p_cleanup_all.set_defaults(func=_confirm_command(cleanup))
-
-    p_install_default = sub.add_parser(
-        "install-default",
-        help="Instalar el entorno sandbox y el escenario por defecto con simuladores",
-    )
-    p_install_default.add_argument(
-        "--simulators",
-        type=int,
-        default=DEFAULT_SIMULATOR_COUNT,
-        help="Cantidad de simuladores aleatorios a desplegar (por defecto 10)",
-    )
-    p_install_default.add_argument(
-        "--seed",
-        type=int,
-        help="Semilla opcional para obtener una distribución determinista de simuladores",
-    )
-    p_install_default.set_defaults(func=_confirm_command(install_default))
-
-    p_cleanup_default = sub.add_parser(
-        "cleanup-default",
-        help="Eliminar el escenario por defecto y limpiar el entorno sandbox",
-    )
-    p_cleanup_default.set_defaults(func=_confirm_command(cleanup_default))
-
-    p_watch = sub.add_parser("watch", help="Watch cluster status")
-    p_watch.add_argument("--minutes", type=int, default=5, help="Duration in minutes")
-    p_watch.add_argument("--detail", choices=["default", "detailed", "all"], default="default")
-    p_watch.add_argument("--env", default="sandbox")
-    p_watch.set_defaults(func=_confirm_command(watch))
-
-    p_validate = sub.add_parser("validate-cluster", help="Validate cluster state")
-    p_validate.add_argument("--env", default="sandbox")
-    p_validate.set_defaults(func=_confirm_command(validate_cluster))
-
-    p_yaml = sub.add_parser("validate-yaml", help="Validate YAML syntax")
-    p_yaml.set_defaults(func=_confirm_command(validate_yaml))
-
-    p_report = sub.add_parser("report", help="Generate architecture report")
-    p_report.set_defaults(func=_confirm_command(report))
-
-    p_meta = sub.add_parser(
-        "validate-metadata",
-        help="Check that calls and invoked_by annotations match and align with NetworkPolicies",
-    )
-    p_meta.set_defaults(func=_confirm_command(validate_metadata))
-
-    p_gen_np = sub.add_parser(
-        "generate-network-policies",
-        help="Output NetworkPolicy manifests based on metadata",
-    )
-    p_gen_np.set_defaults(func=_confirm_command(generate_network_policies))
-
-    p_sim = sub.add_parser(
-        "generate-load-simulators",
-        help="Create synthetic deployments with random availability to stress business workloads",
-    )
-    p_sim.add_argument(
-        "--count",
-        type=int,
-        default=3,
-        help="Number of simulator deployments per target (default: 3)",
-    )
-    p_sim.add_argument(
-        "--targets",
-        nargs="+",
-        choices=sorted(BUSINESS_SIM_TARGETS.keys()),
-        default=sorted(BUSINESS_SIM_TARGETS.keys()),
-        help="Business components to simulate (default: all)",
-    )
-    p_sim.add_argument(
-        "--branch",
-        default="load-simulators",
-        help="Local git branch to store generated manifests",
-    )
-    p_sim.add_argument(
-        "--seed",
-        type=int,
-        help="Optional random seed to obtain deterministic behavior scheduling",
-    )
-    p_sim.add_argument(
-        "--behavior",
-        choices=["dynamic", "ok", "notready", "restart"],
-        help="Override the runtime behavior of generated simulators (default: dynamic)",
-    )
-    p_sim.set_defaults(func=_confirm_command(generate_load_simulators))
-
-    p_list_sim = sub.add_parser(
-        "list-load-simulators",
-        help="List simulator deployments running in the cluster",
-    )
-    p_list_sim.set_defaults(func=_confirm_command(list_load_simulators))
-
-    p_cleanup_sims = sub.add_parser(
-        "cleanup-load-simulators",
-        help="Remove generated simulator manifests and cluster resources",
-    )
-    p_cleanup_sims.add_argument(
-        "--targets",
-        nargs="+",
-        choices=sorted(BUSINESS_SIM_TARGETS.keys()),
-        help="Componentes para los que se limpiarán los manifiestos",
-    )
-    p_cleanup_sims.add_argument(
-        "--branch",
-        default="load-simulators",
-        help="Rama local que contiene los manifiestos generados",
-    )
-    p_cleanup_sims.add_argument(
-        "--delete-branch",
-        action="store_true",
-        help="Eliminar la rama local indicada tras limpiar los manifiestos",
-    )
-    p_cleanup_sims.set_defaults(func=_confirm_command(cleanup_load_simulators))
-
-    p_new = sub.add_parser(
-        "create-component",
-        help="Create a new component instance from the inventory",
-    )
-    p_new.add_argument("name", help="Component instance name")
-    p_new.add_argument("--type", required=True, help="Component type from inventory")
-    p_new.add_argument(
-        "--domain",
-        required=True,
-        choices=["business", "support", "shared"],
-        help="Target domain short name",
-    )
-    p_new.add_argument("--function", help="Override function annotation")
-    p_new.add_argument(
-        "--depends-incluster",
-        help="Comma-separated list of in-cluster dependencies (e.g. api-user-svc, integration-token-svc)",
-    )
-    p_new.add_argument(
-        "--depends-outcluster",
-        help="Comma-separated list of out-of-cluster dependencies (e.g. https://auth0.example.com)",
-    )
-    p_new.add_argument(
-        "--branch",
-        default="component-instances",
-        help="Local git branch to store generated manifests",
-    )
-    p_new.set_defaults(func=_confirm_command(create_component))
-
+    parser = build_parser()
     args = parser.parse_args()
     if not hasattr(args, "func"):
         parser.print_help()
