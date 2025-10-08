@@ -501,8 +501,8 @@ def generate_load_simulators(args: argparse.Namespace) -> int:
         return 1
 
     template_text = SIM_TEMPLATE_PATH.read_text(encoding="utf-8")
-    behaviors = ["ok", "notready", "restart"]
     rng = random.Random(args.seed)
+    behavior_mode = args.behavior or "dynamic"
 
     namespace = "business-domain"
     generated: list[Path] = []
@@ -522,12 +522,13 @@ def generate_load_simulators(args: argparse.Namespace) -> int:
         output_file = comp_path / "load-simulators.yaml"
         docs: list[str] = []
         for idx in range(1, args.count + 1):
-            behavior = rng.choice(behaviors)
+            behavior_seed = rng.randrange(1, 2**31)
             name = f"{info['name_prefix']}-{idx}"
             rendered = template_text.format(
                 name=name,
                 namespace=namespace,
-                behavior=behavior,
+                behavior=behavior_mode,
+                behavior_seed=behavior_seed,
                 simulated_component=info["simulated_component"],
                 function_annotation=info["function_annotation"],
             )
@@ -1144,7 +1145,12 @@ def main() -> int:
     p_sim.add_argument(
         "--seed",
         type=int,
-        help="Optional random seed to obtain deterministic behavior assignments",
+        help="Optional random seed to obtain deterministic behavior scheduling",
+    )
+    p_sim.add_argument(
+        "--behavior",
+        choices=["dynamic", "ok", "notready", "restart"],
+        help="Override the runtime behavior of generated simulators (default: dynamic)",
     )
     p_sim.set_defaults(func=_confirm_command(generate_load_simulators))
 
