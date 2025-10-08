@@ -23,7 +23,7 @@ data:
     quarkus.qute.suffixes=html
     arkit8s.console.commands-path=/opt/arkit8s/commands/commands.json
     arkit8s.console.refresh-interval=PT5S
-  templates/dashboard.qute.html: |
+  dashboard.qute.html: |
     <!DOCTYPE html>
     <html lang="es">
       <head>

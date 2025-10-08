@@ -86,6 +86,11 @@ spec:
         - name: ui-config
           configMap:
             name: architects-visualization-ui
+            items:
+              - key: application.properties
+                path: application.properties
+              - key: dashboard.qute.html
+                path: templates/dashboard.qute.html
         - name: cli-commands
           configMap:
             name: architects-console-commands
