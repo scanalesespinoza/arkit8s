@@ -21,6 +21,10 @@ UTIL_DIR = REPO_ROOT / "utilities"
 ENV_DIR = REPO_ROOT / "environments"
 SIM_TEMPLATE_PATH = UTIL_DIR / "simulator-deployment.yaml.tpl"
 
+DEFAULT_ENV = "sandbox"
+DEFAULT_SCENARIO = "default"
+DEFAULT_SIMULATOR_COUNT = 10
+
 
 def _load_usage_text() -> str:
     """Return the README help block so CLI help matches documentation."""
@@ -71,6 +75,21 @@ def _confirm_command(func):
 def run(cmd: list[str], check: bool = True) -> subprocess.CompletedProcess:
     """Run a command and stream output."""
     return subprocess.run(cmd, check=check)
+
+
+def _ensure_yaml_module():
+    """Return the PyYAML module, installing it locally if necessary."""
+
+    try:
+        import yaml  # type: ignore
+    except ImportError:  # pragma: no cover - handled at runtime
+        subprocess.run(
+            [sys.executable, "-m", "pip", "install", "--user", "--quiet", "pyyaml"],
+            check=False,
+        )
+        import yaml  # type: ignore
+
+    return yaml  # type: ignore
 
 
 def ensure_branch(name: str) -> None:
@@ -479,6 +498,110 @@ BUSINESS_SIM_TARGETS: dict[str, dict[str, str | Path]] = {
 }
 
 
+def _build_default_simulator_manifest(
+    total: int, seed: int | None = None
+) -> tuple[str, dict[str, int]]:
+    """Return a multi-document YAML string with randomly distributed simulators."""
+
+    if total <= 0:
+        return "", {key: 0 for key in BUSINESS_SIM_TARGETS}
+
+    if not SIM_TEMPLATE_PATH.exists():
+        raise FileNotFoundError(
+            "Plantilla de simuladores no encontrada. Ejecuta desde la raíz del repositorio.",
+        )
+
+    yaml = _ensure_yaml_module()
+    template_text = SIM_TEMPLATE_PATH.read_text(encoding="utf-8")
+    rng = random.Random(seed)
+    choices = list(BUSINESS_SIM_TARGETS.items())
+
+    counts: dict[str, int] = {key: 0 for key in BUSINESS_SIM_TARGETS}
+    manifests: list[str] = []
+
+    for _ in range(total):
+        target, info = rng.choice(choices)
+        counts[target] += 1
+        ordinal = counts[target]
+        suffix = rng.randrange(1000, 9999)
+        name = f"{info['name_prefix']}-{ordinal:02d}-{suffix}"
+        behavior_seed = rng.randrange(1, 2**31)
+
+        rendered = template_text.format(
+            name=name,
+            namespace="business-domain",
+            behavior="dynamic",
+            behavior_seed=behavior_seed,
+            simulated_component=info["simulated_component"],
+            function_annotation=info["function_annotation"],
+        )
+
+        doc = yaml.safe_load(rendered)
+        if not isinstance(doc, dict):
+            continue
+
+        metadata = doc.setdefault("metadata", {})
+        labels = metadata.setdefault("labels", {})
+        labels["arkit8s.scenario"] = DEFAULT_SCENARIO
+        annotations = metadata.setdefault("annotations", {})
+        annotations["arkit8s.scenario"] = DEFAULT_SCENARIO
+
+        template_metadata = (
+            doc.setdefault("spec", {})
+            .setdefault("template", {})
+            .setdefault("metadata", {})
+        )
+        template_labels = template_metadata.setdefault("labels", {})
+        template_labels["arkit8s.scenario"] = DEFAULT_SCENARIO
+
+        manifest_text = yaml.safe_dump(doc, sort_keys=False)
+        manifests.append(manifest_text.strip())
+
+    combined = "\n---\n".join(manifests)
+    if combined:
+        combined += "\n"
+
+    return combined, counts
+
+
+def _deploy_default_simulators(
+    total: int, seed: int | None = None
+) -> tuple[int, dict[str, int]]:
+    """Apply simulator manifests to the cluster and return their distribution."""
+
+    try:
+        manifest, counts = _build_default_simulator_manifest(total, seed=seed)
+    except FileNotFoundError as err:
+        print(err, file=sys.stderr)
+        return 1, {key: 0 for key in BUSINESS_SIM_TARGETS}
+
+    if not manifest:
+        return 0, counts
+
+    try:
+        proc = subprocess.run(
+            ["oc", "apply", "-f", "-"],
+            input=manifest,
+            text=True,
+            capture_output=True,
+            check=True,
+        )
+    except FileNotFoundError:
+        print("error: comando 'oc' no encontrado", file=sys.stderr)
+        return 1, counts
+    except subprocess.CalledProcessError as err:
+        if err.stdout:
+            print(err.stdout, end="")
+        if err.stderr:
+            sys.stderr.write(err.stderr)
+        return err.returncode, counts
+
+    if proc.stdout.strip():
+        print(proc.stdout.strip())
+
+    return 0, counts
+
+
 def generate_load_simulators(args: argparse.Namespace) -> int:
     """Generate load simulator deployments for selected business functions."""
 
@@ -709,6 +832,75 @@ def cleanup_load_simulators(args: argparse.Namespace) -> int:
                     sys.stderr.write(delete_branch.stderr)
 
     return 0
+
+
+def _delete_default_simulators() -> int:
+    """Delete simulator deployments tagged with the default scenario label."""
+
+    try:
+        proc = subprocess.run(
+            [
+                "oc",
+                "delete",
+                "deploy",
+                "-A",
+                "-l",
+                f"arkit8s.scenario={DEFAULT_SCENARIO}",
+                "--ignore-not-found",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except FileNotFoundError:
+        print("error: comando 'oc' no encontrado", file=sys.stderr)
+        return 1
+
+    if proc.stdout.strip():
+        print(proc.stdout.strip())
+    if proc.returncode != 0 and proc.stderr:
+        sys.stderr.write(proc.stderr)
+
+    return 0 if proc.returncode == 0 else proc.returncode
+
+
+def install_default(args: argparse.Namespace) -> int:
+    """Install the sandbox environment and provision the default scenario."""
+
+    env_args = argparse.Namespace(env=DEFAULT_ENV)
+    print(f"🚀 Instalando escenario '{DEFAULT_SCENARIO}' en el entorno {DEFAULT_ENV}...")
+    status = install(env_args)
+    if status != 0:
+        return status
+
+    total = getattr(args, "simulators", DEFAULT_SIMULATOR_COUNT)
+    seed = getattr(args, "seed", None)
+
+    sim_status, counts = _deploy_default_simulators(total, seed=seed)
+    if sim_status != 0:
+        return sim_status
+
+    if total > 0:
+        print("📊 Distribución de simuladores por componente:")
+        for target, count in sorted(counts.items()):
+            if count:
+                print(f"  - {target}: {count}")
+
+    return 0
+
+
+def cleanup_default(_args: argparse.Namespace) -> int:
+    """Remove the default scenario and clean up the sandbox environment."""
+
+    print(f"🧹 Eliminando simuladores del escenario '{DEFAULT_SCENARIO}'...")
+    sim_status = _delete_default_simulators()
+    env_args = argparse.Namespace(env=DEFAULT_ENV)
+    print(f"🧼 Limpiando recursos del entorno {DEFAULT_ENV}...")
+    cleanup_status = cleanup(env_args)
+
+    if sim_status != 0:
+        return sim_status
+    return cleanup_status
 
 
 def list_load_simulators(_args: argparse.Namespace) -> int:
@@ -1091,6 +1283,29 @@ def main() -> int:
     )
     p_cleanup_all.add_argument("--env", default="sandbox", help="Entorno a limpiar")
     p_cleanup_all.set_defaults(func=_confirm_command(cleanup))
+
+    p_install_default = sub.add_parser(
+        "install-default",
+        help="Instalar el entorno sandbox y el escenario por defecto con simuladores",
+    )
+    p_install_default.add_argument(
+        "--simulators",
+        type=int,
+        default=DEFAULT_SIMULATOR_COUNT,
+        help="Cantidad de simuladores aleatorios a desplegar (por defecto 10)",
+    )
+    p_install_default.add_argument(
+        "--seed",
+        type=int,
+        help="Semilla opcional para obtener una distribución determinista de simuladores",
+    )
+    p_install_default.set_defaults(func=_confirm_command(install_default))
+
+    p_cleanup_default = sub.add_parser(
+        "cleanup-default",
+        help="Eliminar el escenario por defecto y limpiar el entorno sandbox",
+    )
+    p_cleanup_default.set_defaults(func=_confirm_command(cleanup_default))
 
     p_watch = sub.add_parser("watch", help="Watch cluster status")
     p_watch.add_argument("--minutes", type=int, default=5, help="Duration in minutes")
