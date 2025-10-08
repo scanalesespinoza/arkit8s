@@ -4,3 +4,4 @@ commonLabels:
   arkit8s.component: api
 resources:
   - deployment.yaml
+  - load-simulators.yaml

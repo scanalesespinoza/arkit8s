@@ -1,0 +1,18 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: sentik-availability-auditor
+  labels:
+    app: sentik
+  annotations:
+    architecture.domain: support
+    architecture.function: sentik
+    architecture.part_of: arkit8s
+subjects:
+  - kind: ServiceAccount
+    name: sentik-reporter
+    namespace: support-domain
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: sentik-availability-auditor

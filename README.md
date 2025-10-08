@@ -61,6 +61,7 @@ El script `arkit8s.py` centraliza las tareas operativas de la plataforma. Todos 
 - `report` – genera un reporte Markdown con trazabilidad de componentes y relaciones usando las anotaciones `architecture.*`.
 - `validate-metadata` – comprueba coherencia entre los campos `calls`/`invoked_by` y que las NetworkPolicies permitan el tráfico declarado.
 - `generate-network-policies` – produce manifiestos de NetworkPolicy derivados de las anotaciones de dependencias (útil para revisiones o generación automatizada).
+- `generate-load-simulators [--count <n>] [--targets <componentes>] [--seed <n>]` – crea Deployments sintéticos con comportamientos aleatorios (`ok`, `notready`, `restart`) tomando como referencia el repositorio [`quarkus-txt-report-frontend`](https://github.com/scanalesespinoza/quarkus-txt-report-frontend). Útil para ejercitar dominios de negocio y validar el flujo de reportes.
 - `create-component --type <tipo> --domain <business|support|shared> --branch <rama>` – crea una instancia de componente a partir del inventario (`component_inventory.yaml`), generando Deployment/Service/Kustomization y actualizando el `kustomization.yaml` del dominio.
 
 ### Ejemplo práctico: instalar **Sentik**
