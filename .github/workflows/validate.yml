@@ -1,14 +1,17 @@
-name: Validate YAML
+name: Validate YAML and Python
 
 on:
   pull_request:
     paths:
       - '**/*.yaml'
+      - '**/*.yml'
+      - '**/*.py'
       - 'utilities/validate-yaml.sh'
       - '.github/workflows/validate.yml'
 
 jobs:
   yaml-validation:
+    name: YAML syntax validation
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -17,8 +20,35 @@ jobs:
           chmod +x utilities/validate-yaml.sh
           ./utilities/validate-yaml.sh
 
+  yaml-lint:
+    name: YAML linting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install yamllint
+        run: |
+          python3 -m pip install --user yamllint
+      - name: Run yamllint
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          yamllint -d "{extends: default, rules: {line-length: disable}}" .
+
+  python-compilation:
+    name: Python compilation check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+      - name: Compile Python files
+        run: python -m compileall .
+
   automerge:
-    needs: yaml-validation
+    needs:
+      - yaml-validation
+      - yaml-lint
+      - python-compilation
     if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     permissions:
