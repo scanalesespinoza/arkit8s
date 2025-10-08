@@ -8,3 +8,4 @@ resources:
   - data-access
   - orchestrator
   - user-profile
+  - sentik

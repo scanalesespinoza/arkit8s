@@ -1,0 +1,45 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: sentik-send-not-ready
+  namespace: support-domain
+  labels:
+    app: sentik
+  annotations:
+    architecture.domain: support
+    architecture.function: sentik
+    architecture.part_of: arkit8s
+spec:
+  schedule: "*/2 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: sentik-checker
+              image: registry.redhat.io/openshift4/ose-tools-rhel9
+              imagePullPolicy: IfNotPresent
+              command:
+                - /bin/bash
+                - "/scripts/run.sh"
+              env:
+                - name: TEAMS_WEBHOOK_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: sentik-teams-webhook
+                      key: url
+                - name: FRONTEND_URL
+                  value: "http://sentik:8080"
+              volumeMounts:
+                - name: script-vol
+                  mountPath: /scripts
+          volumes:
+            - name: script-vol
+              configMap:
+                name: sentik-send-not-ready-script
+                defaultMode: 0755
