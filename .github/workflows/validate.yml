@@ -16,3 +16,38 @@ jobs:
         run: |
           chmod +x utilities/validate-yaml.sh
           ./utilities/validate-yaml.sh
+
+  automerge:
+    needs: yaml-validation
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: write
+    steps:
+      - uses: actions/checkout@v3
+      - name: Enable auto-merge
+        uses: peter-evans/enable-pull-request-automerge@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          merge-method: squash
+          pull-request-number: ${{ github.event.pull_request.number }}
+      - name: Delete PR branch on merge
+        uses: actions/github-script@v6
+        with:
+          script: |
+            await github.graphql(`
+              mutation($input: UpdatePullRequestInput!) {
+                updatePullRequest(input: $input) {
+                  pullRequest {
+                    number
+                    deleteHeadRefOnMerge
+                  }
+                }
+              }
+            `, {
+              input: {
+                pullRequestId: '${{ github.event.pull_request.node_id }}',
+                deleteHeadRefOnMerge: true
+              }
+            });
