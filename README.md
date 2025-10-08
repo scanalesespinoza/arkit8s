@@ -62,6 +62,8 @@ El script `arkit8s.py` centraliza las tareas operativas de la plataforma. Todos 
 - `validate-metadata` – comprueba coherencia entre los campos `calls`/`invoked_by` y que las NetworkPolicies permitan el tráfico declarado.
 - `generate-network-policies` – produce manifiestos de NetworkPolicy derivados de las anotaciones de dependencias (útil para revisiones o generación automatizada).
 - `generate-load-simulators [--count <n>] [--targets <componentes>] [--seed <n>]` – crea Deployments sintéticos con comportamientos aleatorios (`ok`, `notready`, `restart`) tomando como referencia el repositorio [`quarkus-txt-report-frontend`](https://github.com/scanalesespinoza/quarkus-txt-report-frontend). Útil para ejercitar dominios de negocio y validar el flujo de reportes.
+- `list-load-simulators` – consulta en el clúster todos los Deployments etiquetados como simuladores (`arkit8s.simulator=true`) e imprime el namespace, nombre y comportamiento (`BEHAVIOR`) asignado a cada uno.
+- `cleanup-load-simulators [--branch <nombre>] [--targets <componentes>]` – elimina los simuladores del clúster, borra los manifiestos `load-simulators.yaml` generados por el comando y retira su referencia de los `kustomization.yaml`.  Después de ejecutar la limpieza, cambia a tu rama principal (`git switch main`) y elimina la rama temporal (`git branch -D <nombre>`).
 - `create-component --type <tipo> --domain <business|support|shared> --branch <rama>` – crea una instancia de componente a partir del inventario (`component_inventory.yaml`), generando Deployment/Service/Kustomization y actualizando el `kustomization.yaml` del dominio.
 
 ### Ejemplo práctico: instalar **Sentik**
