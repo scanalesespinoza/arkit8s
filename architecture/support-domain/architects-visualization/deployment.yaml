@@ -24,42 +24,17 @@ spec:
       labels:
         app: architects-visualization
     spec:
-      initContainers:
-        - name: build-architects-visualization
-          image: docker.io/library/maven:3.9.6-eclipse-temurin-17
-          imagePullPolicy: IfNotPresent
-          command:
-            - /bin/bash
-            - -c
-          args:
-            - >-
-              set -euo pipefail;
-              if ! command -v git >/dev/null 2>&1; then
-                apt-get update && apt-get install -y --no-install-recommends git ca-certificates && rm -rf /var/lib/apt/lists/*;
-              fi;
-              git clone --depth 1 https://github.com/scanalesespinoza/kubeland.git /tmp/src;
-              mkdir -p /tmp/m2-repo;
-              mvn -f /tmp/src -Dmaven.repo.local=/tmp/m2-repo -DskipTests package;
-              cp /tmp/src/target/kubeland-*.jar /work/application/app.jar
-          volumeMounts:
-            - name: application-binary
-              mountPath: /work/application
       containers:
         - name: web-console
-          image: eclipse-temurin:17-jre
+          image: quay.io/arkit8s/architects-console:latest
           imagePullPolicy: IfNotPresent
-          command:
-            - java
-          args:
-            - "-Dquarkus.http.host=0.0.0.0"
-            - "-Dquarkus.config.locations=file:/deployments/config/application.properties"
-            - "-jar"
-            - /work/application/app.jar
           env:
-            - name: ARKIT8S_CONSOLE_COMMANDS
+            - name: COMMANDS_PATH
               value: /opt/arkit8s/commands/commands.json
-            - name: QUARKUS_PROFILE
-              value: prod
+            - name: COMMANDS_REFRESH
+              value: PT5S
+            - name: QUARKUS_CONFIG_LOCATIONS
+              value: file:/deployments/config/application.properties
           ports:
             - containerPort: 8080
               name: http
@@ -69,8 +44,6 @@ spec:
             - name: cli-commands
               mountPath: /opt/arkit8s/commands
               readOnly: true
-            - name: application-binary
-              mountPath: /work/application
           readinessProbe:
             httpGet:
               path: /q/health/ready
@@ -98,5 +71,3 @@ spec:
             items:
               - key: commands.json
                 path: commands.json
-        - name: application-binary
-          emptyDir: {}

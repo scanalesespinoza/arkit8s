@@ -1,0 +1,8 @@
+FROM quay.io/quarkus/quarkus-micro-image:2.0 AS runner
+WORKDIR /work/application
+COPY target/quarkus-app/lib/ /work/application/lib/
+COPY target/quarkus-app/*.jar /work/application/
+COPY target/quarkus-app/app/ /work/application/app/
+COPY target/quarkus-app/quarkus/ /work/application/quarkus/
+USER 1001
+ENTRYPOINT ["java","-jar","/work/application/quarkus-run.jar"]
