@@ -70,30 +70,74 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - detect-changes
+    if: needs.detect-changes.outputs.architects_console == 'true'
     steps:
-      - name: Skip build when architects-console is unchanged
-        if: needs.detect-changes.outputs.architects_console != 'true'
-        run: echo "No architects-console changes detected; skipping build."
       - uses: actions/checkout@v3
-        if: needs.detect-changes.outputs.architects_console == 'true'
       - name: Set up JDK
-        if: needs.detect-changes.outputs.architects_console == 'true'
         uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
           java-version: '17'
           cache: maven
       - name: Build and test module
-        if: needs.detect-changes.outputs.architects_console == 'true'
         run: mvn -pl support-domain/architects-console -am clean verify -B
 
   automerge:
+    name: Enable auto-merge (no architects-console changes)
     needs:
+      - detect-changes
+      - yaml-validation
+      - yaml-lint
+      - python-compilation
+    if: |
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      needs.detect-changes.outputs.architects_console != 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: write
+    steps:
+      - uses: actions/checkout@v3
+      - name: Enable auto-merge
+        uses: peter-evans/enable-pull-request-automerge@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          merge-method: squash
+          pull-request-number: ${{ github.event.pull_request.number }}
+      - name: Delete PR branch on merge
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const result = await github.graphql(`
+              mutation($input: UpdatePullRequestInput!) {
+                updatePullRequest(input: $input) {
+                  pullRequest {
+                    number
+                    deleteHeadRefOnMerge
+                  }
+                }
+              }
+            `, {
+              input: {
+                pullRequestId: '${{ github.event.pull_request.node_id }}',
+                deleteHeadRefOnMerge: true
+              }
+            });
+            if (!result?.updatePullRequest?.pullRequest?.deleteHeadRefOnMerge) {
+              core.setFailed('Failed to enable automatic head branch deletion for this pull request.');
+            }
+
+  automerge-with-architects:
+    name: Enable auto-merge (with architects-console build)
+    needs:
+      - detect-changes
       - yaml-validation
       - yaml-lint
       - python-compilation
       - architects-console-build
-    if: github.event.pull_request.head.repo.full_name == github.repository
+    if: |
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      needs.detect-changes.outputs.architects_console == 'true'
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
