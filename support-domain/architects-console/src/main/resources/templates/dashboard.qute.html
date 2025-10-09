@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{title ?: 'Arkit8s Architects Console'}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Red+Hat+Text:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        color-scheme: dark light;
+        font-family: "Red Hat Text", "Segoe UI", sans-serif;
+        background: radial-gradient(circle at top left, #0f172a 0%, #020617 100%);
+        color: #e2e8f0;
+      }
+      body {
+        margin: 0;
+        padding: 0;
+      }
+      header {
+        padding: 1.5rem 2rem;
+        background: rgba(30, 64, 175, 0.85);
+        backdrop-filter: blur(8px);
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+      header h1 {
+        margin: 0;
+        font-size: clamp(2rem, 3vw, 3rem);
+      }
+      header p {
+        margin: 0;
+        max-width: 780px;
+        line-height: 1.6;
+      }
+      main {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 1.5rem;
+        padding: 2rem;
+      }
+      section {
+        background: rgba(15, 23, 42, 0.75);
+        border-radius: 16px;
+        padding: 1.5rem;
+        box-shadow: 0 20px 45px rgba(15, 23, 42, 0.45);
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+      }
+      h2 {
+        margin: 0;
+        font-size: 1.6rem;
+      }
+      .command-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+      .command-card {
+        border-radius: 12px;
+        padding: 1rem;
+        border: 1px solid rgba(94, 234, 212, 0.35);
+        background: rgba(15, 118, 110, 0.2);
+        display: grid;
+        gap: 0.4rem;
+      }
+      .command-card strong {
+        font-size: 1.1rem;
+      }
+      .command-card code {
+        display: inline-block;
+        padding: 0.4rem 0.6rem;
+        border-radius: 8px;
+        background: rgba(15, 23, 42, 0.8);
+        color: #67e8f9;
+        font-size: 0.9rem;
+        font-family: "Fira Code", monospace;
+      }
+      .meta {
+        font-size: 0.85rem;
+        opacity: 0.8;
+      }
+      .terminal {
+        flex: 1;
+        border-radius: 12px;
+        background: #000000;
+        color: #67e8f9;
+        font-family: "Fira Code", monospace;
+        padding: 1rem;
+        overflow: auto;
+        min-height: 280px;
+        box-shadow: inset 0 0 0 1px rgba(94, 234, 212, 0.2);
+        white-space: pre-wrap;
+      }
+      .events {
+        font-family: "Fira Code", monospace;
+        font-size: 0.85rem;
+        display: grid;
+        gap: 0.4rem;
+      }
+      .events span {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+      }
+      .events span strong {
+        color: #38bdf8;
+      }
+      button.primary {
+        align-self: flex-start;
+        padding: 0.75rem 1.5rem;
+        border-radius: 999px;
+        border: none;
+        background: linear-gradient(135deg, #38bdf8, #a855f7);
+        color: white;
+        font-weight: 600;
+        cursor: pointer;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+      }
+      button.primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 20px 40px rgba(56, 189, 248, 0.25);
+      }
+      footer {
+        padding: 1rem 2rem 2rem;
+        font-size: 0.85rem;
+        opacity: 0.75;
+      }
+      @media (max-width: 700px) {
+        main {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>{title}</h1>
+      <p>{description}</p>
+      <span class="meta">Última sincronización del catálogo: {generatedAt}</span>
+    </header>
+    <main>
+      <section>
+        <h2>Comandos del CLI</h2>
+        <ul class="command-list">
+          {#if commands.isEmpty}
+            <li class="command-card">Sin comandos registrados. Ejecuta <code>arkit8s.py sync-web-console</code>.</li>
+          {#else}
+            {#for command in commands}
+              <li class="command-card" data-command="{command.name}">
+                <strong>{command.name}</strong>
+                <span>{command.summary}</span>
+                <code>{command.canonicalCommand()}</code>
+                <button class="primary" data-action="copy" data-command="{command.canonicalCommand()}">
+                  Copiar comando
+                </button>
+              </li>
+            {/for}
+          {/if}
+        </ul>
+      </section>
+      <section>
+        <h2>Actividad reciente</h2>
+        <div class="events" id="event-feed">
+          <span><em>Sin eventos registrados.</em></span>
+        </div>
+        <h2>Bitácora web</h2>
+        <div class="terminal" id="terminal-log">
+          Selecciona un comando para copiarlo y ejecutarlo en tu terminal favorita.
+        </div>
+      </section>
+    </main>
+    <footer>
+      La consola web observa el archivo configurado en <code>arkit8s.console.commands-path</code>.
+    </footer>
+    <script>
+      async function fetchEvents() {
+        const response = await fetch('/api/events');
+        if (!response.ok) return;
+        const events = await response.json();
+        const feed = document.getElementById('event-feed');
+        if (!Array.isArray(events) || events.length === 0) {
+          feed.innerHTML = '<span><em>Sin eventos registrados.</em></span>';
+          return;
+        }
+        feed.innerHTML = events
+          .map(
+            (event) =>
+              `<span><strong>${event.type}</strong><span>${new Date(event.at).toLocaleTimeString()} · ${event.detail}</span></span>`
+          )
+          .join('');
+      }
+
+      function setupCopyButtons() {
+        document.body.addEventListener('click', async (event) => {
+          const trigger = event.target.closest('button[data-action="copy"]');
+          if (!trigger) return;
+          const command = trigger.dataset.command;
+          try {
+            await navigator.clipboard.writeText(command);
+            const terminal = document.getElementById('terminal-log');
+            terminal.textContent = `$ ${command}\nComando copiado al portapapeles. Ejecuta desde tu shell favorita.`;
+          } catch (err) {
+            console.error('No fue posible copiar el comando', err);
+          }
+        });
+      }
+
+      setupCopyButtons();
+      fetchEvents();
+      setInterval(fetchEvents, 5000);
+    </script>
+  </body>
+</html>

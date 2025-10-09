@@ -1,0 +1,15 @@
+{
+  "commands": [
+    {
+      "name": "install",
+      "summary": "Instala recursos",
+      "usage": "usage: arkit8s.py install [-h]"
+    },
+    {
+      "name": "cleanup",
+      "summary": "Limpia recursos",
+      "usage": "usage: arkit8s.py cleanup [-h]"
+    }
+  ],
+  "generated_at": "2025-10-09T00:00:00Z"
+}
