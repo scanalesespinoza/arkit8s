@@ -70,16 +70,21 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - detect-changes
-    if: needs.detect-changes.outputs.architects_console == 'true'
     steps:
+      - name: Skip build when architects-console is unchanged
+        if: needs.detect-changes.outputs.architects_console != 'true'
+        run: echo "No architects-console changes detected; skipping build."
       - uses: actions/checkout@v3
+        if: needs.detect-changes.outputs.architects_console == 'true'
       - name: Set up JDK
+        if: needs.detect-changes.outputs.architects_console == 'true'
         uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
           java-version: '17'
           cache: maven
       - name: Build and test module
+        if: needs.detect-changes.outputs.architects_console == 'true'
         run: mvn -pl support-domain/architects-console -am clean verify -B
 
   automerge:
