@@ -8,11 +8,28 @@ on:
       - '**/*.py'
       - 'utilities/validate-yaml.sh'
       - '.github/workflows/validate.yml'
+      - 'support-domain/architects-console/**'
 
 jobs:
+  detect-changes:
+    name: Detect file changes
+    runs-on: ubuntu-latest
+    outputs:
+      architects_console: ${{ steps.filter.outputs.architects_console }}
+    steps:
+      - uses: actions/checkout@v3
+      - id: filter
+        uses: dorny/paths-filter@v2
+        with:
+          filters: |
+            architects_console:
+              - 'support-domain/architects-console/**'
+
   yaml-validation:
     name: YAML syntax validation
     runs-on: ubuntu-latest
+    needs:
+      - detect-changes
     steps:
       - uses: actions/checkout@v3
       - name: Run YAML validation
@@ -23,6 +40,8 @@ jobs:
   yaml-lint:
     name: YAML linting
     runs-on: ubuntu-latest
+    needs:
+      - detect-changes
     steps:
       - uses: actions/checkout@v3
       - name: Install yamllint
@@ -36,6 +55,8 @@ jobs:
   python-compilation:
     name: Python compilation check
     runs-on: ubuntu-latest
+    needs:
+      - detect-changes
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
@@ -44,11 +65,34 @@ jobs:
       - name: Compile Python files
         run: python -m compileall .
 
+  architects-console-build:
+    name: Architects Console build and tests
+    runs-on: ubuntu-latest
+    needs:
+      - detect-changes
+    steps:
+      - name: Skip build when architects-console is unchanged
+        if: needs.detect-changes.outputs.architects_console != 'true'
+        run: echo "No architects-console changes detected; skipping build."
+      - uses: actions/checkout@v3
+        if: needs.detect-changes.outputs.architects_console == 'true'
+      - name: Set up JDK
+        if: needs.detect-changes.outputs.architects_console == 'true'
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: maven
+      - name: Build and test module
+        if: needs.detect-changes.outputs.architects_console == 'true'
+        run: mvn -pl support-domain/architects-console -am clean verify -B
+
   automerge:
     needs:
       - yaml-validation
       - yaml-lint
       - python-compilation
+      - architects-console-build
     if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     permissions:
@@ -66,7 +110,7 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
-            await github.graphql(`
+            const result = await github.graphql(`
               mutation($input: UpdatePullRequestInput!) {
                 updatePullRequest(input: $input) {
                   pullRequest {
@@ -81,3 +125,6 @@ jobs:
                 deleteHeadRefOnMerge: true
               }
             });
+            if (!result?.updatePullRequest?.pullRequest?.deleteHeadRefOnMerge) {
+              core.setFailed('Failed to enable automatic head branch deletion for this pull request.');
+            }
