@@ -29,6 +29,8 @@ CLI_COMMANDS_HELP: dict[str, str] = {
     "install": "Aplica los manifiestos base y del entorno seleccionado usando oc apply",
     "uninstall": "Elimina todos los manifiestos de arquitectura sin fallar si ya no existen",
     "cleanup": "Borra namespaces y recursos generados por arkit8s para un reinicio limpio",
+    "install-openshift-pipelines": "Instala OpenShift Pipelines aplicando los manifiestos GitOps del repositorio",
+    "cleanup-openshift-pipelines": "Elimina la suscripción y el TektonConfig de OpenShift Pipelines gestionados por GitOps",
     "install-default": "Despliega el entorno sandbox junto al escenario por defecto y simuladores",
     "cleanup-default": "Retira el escenario por defecto y limpia por completo el entorno sandbox",
     "watch": "Monitorea continuamente la sincronía del clúster con los manifiestos",
@@ -46,6 +48,7 @@ CLI_COMMANDS_HELP: dict[str, str] = {
 
 WEB_CONSOLE_DIR = ARCH_DIR / "support-domain" / "architects-visualization"
 WEB_CONSOLE_COMMANDS_CONFIGMAP = WEB_CONSOLE_DIR / "console-commands-configmap.yaml"
+PIPELINES_DIR = ARCH_DIR / "shared-components" / "openshift-pipelines"
 
 
 def _load_usage_text() -> str:
@@ -157,6 +160,51 @@ def uninstall(_args: argparse.Namespace) -> int:
     run(["oc", "delete", "-f", str(ARCH_DIR), "--recursive"], check=False)
     run(["oc", "delete", "-f", str(ARCH_DIR / "bootstrap")], check=False)
     return 0
+
+
+def install_openshift_pipelines(_args: argparse.Namespace) -> int:
+    """Install OpenShift Pipelines using the GitOps manifests tracked in the repo."""
+
+    proc = run(["oc", "apply", "-k", str(PIPELINES_DIR)], check=False)
+    if proc.returncode != 0:
+        print(
+            "⚠️  No se pudieron aplicar los manifiestos de OpenShift Pipelines; revisa permisos y el estado del clúster.",
+            file=sys.stderr,
+        )
+        return proc.returncode or 1
+
+    wait_proc = run(
+        ["oc", "wait", "--for=condition=Ready", "tektonconfig/config", "--timeout=600s"],
+        check=False,
+    )
+    if wait_proc.returncode != 0:
+        print(
+            "⚠️  Los recursos se aplicaron, pero TektonConfig/config no alcanzó la condición Ready en 10 minutos.",
+            file=sys.stderr,
+        )
+        return wait_proc.returncode or 1
+
+    print("✅ OpenShift Pipelines quedó listo para sincronizar pipelines declarativos.")
+    return 0
+
+
+def cleanup_openshift_pipelines(_args: argparse.Namespace) -> int:
+    """Remove the GitOps-managed OpenShift Pipelines subscription and payload."""
+
+    status = 0
+
+    proc = run(["oc", "delete", "-k", str(PIPELINES_DIR)], check=False)
+    if proc.returncode != 0:
+        status = proc.returncode
+
+    ns_proc = run(
+        ["oc", "delete", "project", "openshift-pipelines", "--ignore-not-found"],
+        check=False,
+    )
+    if status == 0 and ns_proc.returncode != 0:
+        status = ns_proc.returncode
+
+    return status
 
 
 def cleanup(args: argparse.Namespace) -> int:
@@ -304,6 +352,18 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_cleanup_all.add_argument("--env", default="sandbox", help="Entorno a limpiar")
     p_cleanup_all.set_defaults(func=_confirm_command(cleanup))
+
+    p_install_pipelines = sub.add_parser(
+        "install-openshift-pipelines",
+        help=CLI_COMMANDS_HELP["install-openshift-pipelines"],
+    )
+    p_install_pipelines.set_defaults(func=_confirm_command(install_openshift_pipelines))
+
+    p_cleanup_pipelines = sub.add_parser(
+        "cleanup-openshift-pipelines",
+        help=CLI_COMMANDS_HELP["cleanup-openshift-pipelines"],
+    )
+    p_cleanup_pipelines.set_defaults(func=_confirm_command(cleanup_openshift_pipelines))
 
     p_install_default = sub.add_parser(
         "install-default",

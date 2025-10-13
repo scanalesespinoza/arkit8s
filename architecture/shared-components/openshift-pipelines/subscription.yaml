@@ -1,0 +1,15 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: openshift-pipelines-operator-rh
+  namespace: openshift-operators
+  labels:
+    app.kubernetes.io/name: openshift-pipelines
+    app.kubernetes.io/component: cicd
+    app.kubernetes.io/part-of: arkit8s
+spec:
+  channel: stable
+  installPlanApproval: Automatic
+  name: openshift-pipelines-operator-rh
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace

@@ -51,6 +51,13 @@ El script `arkit8s.py` centraliza las tareas operativas de la plataforma. Todos 
 3. **Monitorea** durante unos minutos para detectar desincronizaciones: `./arkit8s.py watch --env sandbox --minutes 5`.
 4. **Genera reportes** o valida metadatos según sea necesario.
 
+### Instalar OpenShift Pipelines con GitOps
+
+1. Ejecuta `./arkit8s.py install-openshift-pipelines` para aplicar la suscripción del operador en `openshift-operators` y el `TektonConfig` declarado en `architecture/shared-components/openshift-pipelines`.
+2. El comando espera hasta 10 minutos a que `TektonConfig/config` quede en condición `Ready`. Si necesitas monitorear el progreso, abre otra terminal y ejecuta `oc get tektonconfig.config -w`.
+3. Una vez disponible, sincroniza tus pipelines declarativos en el repositorio GitOps correspondiente.
+4. Para desinstalar, ejecuta `./arkit8s.py cleanup-openshift-pipelines`. Este comando elimina la suscripción, borra el `TektonConfig` y solicita la eliminación del proyecto `openshift-pipelines` generado por el operador (se ignora si ya no existe).
+
 ### Subcomandos disponibles
 
 > Todos los subcomandos aceptan `--help` para mostrar su resumen puntual.
@@ -58,6 +65,8 @@ El script `arkit8s.py` centraliza las tareas operativas de la plataforma. Todos 
 - `install [--env <nombre>]` – aplica los manifiestos base (`architecture/bootstrap`) y los del entorno indicado en `environments/`, verificando que existan los namespaces esperados y las ServiceAccounts que habilitan componentes como Sentik.
 - `uninstall` – elimina los recursos definidos en `architecture/` (incluyendo bootstrap). No falla si los recursos ya no existen.
 - `cleanup [--env <nombre>]` – borra todos los recursos del entorno indicado, incluidos los namespaces creados por `bootstrap`, dejando el clúster listo para una instalación desde cero.
+- `install-openshift-pipelines` – aplica la suscripción del operador y el `TektonConfig` gestionados por GitOps en `architecture/shared-components/openshift-pipelines` para habilitar OpenShift Pipelines.
+- `cleanup-openshift-pipelines` – elimina la suscripción y el `TektonConfig` gestionados por GitOps y borra el proyecto `openshift-pipelines` creado por el operador.
 - `install-default [--simulators <n>] [--seed <n>]` – despliega el entorno `sandbox` y genera 10 simuladores de carga aleatorios (configurable con `--simulators`) etiquetados como parte del escenario por defecto.
 - `cleanup-default` – elimina los simuladores del escenario por defecto y limpia por completo el entorno `sandbox`.
 - `validate-cluster [--env <nombre>]` – revisa namespaces, deployments, pods y sincronización (`oc diff`) para asegurar que el estado del clúster coincide con los manifiestos.
