@@ -8,7 +8,7 @@ metadata:
     app.kubernetes.io/component: cicd
     app.kubernetes.io/part-of: arkit8s
 spec:
-  channel: stable
+  channel: latest
   installPlanApproval: Automatic
   name: openshift-pipelines-operator-rh
   source: redhat-operators
