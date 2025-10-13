@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gitlab-omnibus-config
+  namespace: shared-components
+  labels:
+    app: gitlab-ce
+data:
+  omnibus-config: |
+    external_url 'http://gitlab-ce-shared-components.apps-crc.testing'
+    gitlab_rails['gitlab_shell_ssh_port'] = 32222
+    gitlab_rails['smtp_enable'] = false
+    gitlab_rails['gitlab_email_enabled'] = false
+    nginx['listen_port'] = 80
+    nginx['listen_https'] = false
+    letsencrypt['enable'] = false
