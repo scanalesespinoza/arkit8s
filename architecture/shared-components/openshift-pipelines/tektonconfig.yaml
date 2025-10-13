@@ -1,0 +1,19 @@
+apiVersion: operator.tekton.dev/v1alpha1
+kind: TektonConfig
+metadata:
+  name: config
+  labels:
+    app.kubernetes.io/name: openshift-pipelines
+    app.kubernetes.io/component: cicd
+    app.kubernetes.io/part-of: arkit8s
+spec:
+  profile: all
+  targetNamespace: openshift-pipelines
+  pipeline:
+    default-service-account: pipeline
+    disable-affinity-assistant: false
+    disable-home-env-overwrite: false
+    disable-working-directory-overwrite: false
+    enable-api-fields: stable
+    enable-bundles-resolver: true
+    enable-cluster-resolver: true
