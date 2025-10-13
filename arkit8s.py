@@ -165,13 +165,45 @@ def uninstall(_args: argparse.Namespace) -> int:
 def install_openshift_pipelines(_args: argparse.Namespace) -> int:
     """Install OpenShift Pipelines using the GitOps manifests tracked in the repo."""
 
-    proc = run(["oc", "apply", "-k", str(PIPELINES_DIR)], check=False)
+    subscription_path = PIPELINES_DIR / "subscription.yaml"
+    tektonconfig_path = PIPELINES_DIR / "tektonconfig.yaml"
+
+    proc = run(["oc", "apply", "-f", str(subscription_path)], check=False)
     if proc.returncode != 0:
         print(
-            "⚠️  No se pudieron aplicar los manifiestos de OpenShift Pipelines; revisa permisos y el estado del clúster.",
+            "⚠️  No se pudo aplicar la suscripción del operador de OpenShift Pipelines; revisa permisos y el estado del clúster.",
             file=sys.stderr,
         )
         return proc.returncode or 1
+
+    deadline = time.monotonic() + 600
+    crd_available = False
+    while time.monotonic() < deadline:
+        crd_proc = subprocess.run(
+            ["oc", "get", "crd", "tektonconfigs.operator.tekton.dev"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+        if crd_proc.returncode == 0:
+            crd_available = True
+            break
+        time.sleep(5)
+
+    if not crd_available:
+        print(
+            "⚠️  La CRD tektonconfigs.operator.tekton.dev no estuvo disponible en 10 minutos tras crear la suscripción.",
+            file=sys.stderr,
+        )
+        return 1
+
+    tekton_proc = run(["oc", "apply", "-f", str(tektonconfig_path)], check=False)
+    if tekton_proc.returncode != 0:
+        print(
+            "⚠️  La CR TektonConfig no se pudo aplicar aun cuando la CRD está disponible; revisa el estado del clúster.",
+            file=sys.stderr,
+        )
+        return tekton_proc.returncode or 1
 
     wait_proc = run(
         ["oc", "wait", "--for=condition=Ready", "tektonconfig/config", "--timeout=600s"],
