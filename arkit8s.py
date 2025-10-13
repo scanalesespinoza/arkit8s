@@ -162,10 +162,46 @@ def uninstall(_args: argparse.Namespace) -> int:
     return 0
 
 
+def _wait_for_crd(crd: str, timeout: int = 600, interval: int = 10) -> bool:
+    """Poll the cluster until the requested CRD is available or timeout expires."""
+
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        proc = subprocess.run(
+            ["oc", "get", "crd", crd],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+        if proc.returncode == 0:
+            return True
+        time.sleep(interval)
+
+    return False
+
+
 def install_openshift_pipelines(_args: argparse.Namespace) -> int:
     """Install OpenShift Pipelines using the GitOps manifests tracked in the repo."""
 
-    proc = run(["oc", "apply", "-k", str(PIPELINES_DIR)], check=False)
+    subscription_path = PIPELINES_DIR / "subscription.yaml"
+    tektonconfig_path = PIPELINES_DIR / "tektonconfig.yaml"
+
+    proc = run(["oc", "apply", "-f", str(subscription_path)], check=False)
+    if proc.returncode != 0:
+        print(
+            "⚠️  No se pudieron aplicar los manifiestos de OpenShift Pipelines; revisa permisos y el estado del clúster.",
+            file=sys.stderr,
+        )
+        return proc.returncode or 1
+
+    if not _wait_for_crd("tektonconfigs.operator.tekton.dev"):
+        print(
+            "⚠️  La CRD tektonconfigs.operator.tekton.dev no estuvo disponible en 10 minutos; revisa el estado del operador.",
+            file=sys.stderr,
+        )
+        return 1
+
+    proc = run(["oc", "apply", "-f", str(tektonconfig_path)], check=False)
     if proc.returncode != 0:
         print(
             "⚠️  No se pudieron aplicar los manifiestos de OpenShift Pipelines; revisa permisos y el estado del clúster.",
