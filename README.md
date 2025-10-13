@@ -53,7 +53,7 @@ El script `arkit8s.py` centraliza las tareas operativas de la plataforma. Todos 
 
 ### Instalar OpenShift Pipelines con GitOps
 
-1. Ejecuta `./arkit8s.py install-openshift-pipelines` para aplicar la suscripción del operador en `openshift-operators` y el `TektonConfig` declarado en `architecture/shared-components/openshift-pipelines`.
+1. Ejecuta `./arkit8s.py install-openshift-pipelines` para aplicar la suscripción del operador en `openshift-operators` y el `TektonConfig` declarado en `architecture/shared-components/openshift-pipelines`. El manifiesto usa el canal `latest`, tal como documenta la guía oficial de OpenShift Pipelines, porque el canal `stable` ya no está disponible en el catálogo de Red Hat.
 2. El comando espera hasta 10 minutos a que `TektonConfig/config` quede en condición `Ready`. Si necesitas monitorear el progreso, abre otra terminal y ejecuta `oc get tektonconfig.config -w`.
 3. Una vez disponible, sincroniza tus pipelines declarativos en el repositorio GitOps correspondiente.
 4. Para desinstalar, ejecuta `./arkit8s.py cleanup-openshift-pipelines`. Este comando elimina la suscripción, borra el `TektonConfig` y solicita la eliminación del proyecto `openshift-pipelines` generado por el operador (se ignora si ya no existe).
