@@ -1,0 +1,16 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: gitlab-ce
+  namespace: shared-components
+  labels:
+    app: gitlab-ce
+spec:
+  host: gitlab-ce-shared-components.apps-crc.testing
+  to:
+    kind: Service
+    name: gitlab-ce
+    weight: 100
+  port:
+    targetPort: http
+  wildcardPolicy: None

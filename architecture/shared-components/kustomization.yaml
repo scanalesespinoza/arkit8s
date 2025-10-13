@@ -5,3 +5,4 @@ commonLabels:
 resources:
   - access-control
   - openshift-pipelines
+  - gitlab-ce

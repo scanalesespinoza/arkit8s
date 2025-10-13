@@ -98,6 +98,17 @@ El script `arkit8s.py` centraliza las tareas operativas de la plataforma. Todos 
 - `./arkit8s.py install-default --simulators 15` – despliega el escenario por defecto con 15 simuladores distribuidos aleatoriamente entre los componentes disponibles.
 - `./arkit8s.py cleanup-default` – limpia por completo el escenario por defecto junto al entorno `sandbox`.
 
+### GitLab CE en OpenShift
+
+Este repositorio incluye un despliegue de referencia de **GitLab Community Edition** para acelerar la provisión de herramientas DevSecOps sobre OpenShift Local (CRC) u otros clústeres OpenShift compatibles.
+
+1. **Dependencias**: se declara un `StatefulSet` con tres `PersistentVolumeClaim` (configuración, datos y bitácoras). Asegúrate de que el clúster cuente con un *StorageClass* por omisión capaz de aprovisionar volúmenes `ReadWriteOnce` de al menos 20 GiB.
+2. **Credenciales iniciales**: el `Secret` `gitlab-initial-admin` crea el usuario `root` con el correo `root@gitlab.local` y la contraseña `ChangeMe123!`. Personaliza estos valores antes de aplicar los manifiestos para evitar reutilizar credenciales por defecto (`kubectl edit secret/gitlab-initial-admin -n shared-components`).
+3. **URL de acceso**: la `Route` expone la instancia vía `http://gitlab-ce-shared-components.apps-crc.testing`. Si tu dominio de aplicaciones difiere, actualiza `architecture/shared-components/gitlab-ce/configmap-omnibus.yaml` para ajustar la variable `external_url` y el `host` de la `Route`.
+4. **Aplicación de manifiestos**: ejecuta `./arkit8s.py install --env sandbox` (o el entorno de tu preferencia). El `StatefulSet` tardará varios minutos en descargar la imagen `gitlab/gitlab-ce:16.9.1-ce.0` y configurar los servicios internos de PostgreSQL y Redis incluidos en la distribución Omnibus.
+5. **Verificación**: consulta el estado con `oc get pods -n shared-components` y espera a que el pod `gitlab-ce-0` se encuentre en `Running`. Recupera la URL desde la `Route` (`oc get route gitlab-ce -n shared-components -o jsonpath='{.spec.host}'`) y accede con las credenciales iniciales.
+6. **Personalización avanzada**: modifica `architecture/shared-components/gitlab-ce/configmap-omnibus.yaml` para añadir parámetros de `gitlab.rb` (por ejemplo SMTP, repositorio de contenedores o certificados TLS). Tras editar el ConfigMap, ejecuta `./arkit8s.py install --env <entorno>` para reconciliar los cambios.
+
 ### Ejemplo práctico: instalar **Sentik**
 
 1. **Configura credenciales**: edita `architecture/support-domain/sentik/secret.yaml` para colocar la URL real del webhook de Microsoft Teams (`stringData.url`).

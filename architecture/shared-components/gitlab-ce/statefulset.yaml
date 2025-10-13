@@ -1,0 +1,91 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: gitlab-ce
+  namespace: shared-components
+  labels:
+    app: gitlab-ce
+    app.kubernetes.io/name: gitlab-ce
+    app.kubernetes.io/component: scm
+    app.kubernetes.io/part-of: arkit8s
+spec:
+  serviceName: gitlab-ce
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gitlab-ce
+  template:
+    metadata:
+      labels:
+        app: gitlab-ce
+    spec:
+      securityContext:
+        fsGroup: 1000
+      containers:
+        - name: gitlab-ce
+          image: gitlab/gitlab-ce:16.9.1-ce.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+              name: http
+            - containerPort: 443
+              name: https
+            - containerPort: 22
+              name: ssh
+          env:
+            - name: GITLAB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: gitlab-initial-admin
+                  key: password
+            - name: GITLAB_ROOT_EMAIL
+              valueFrom:
+                secretKeyRef:
+                  name: gitlab-initial-admin
+                  key: email
+            - name: GITLAB_ROOT_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: gitlab-initial-admin
+                  key: username
+            - name: GITLAB_OMNIBUS_CONFIG
+              valueFrom:
+                configMapKeyRef:
+                  name: gitlab-omnibus-config
+                  key: omnibus-config
+          volumeMounts:
+            - name: gitlab-config
+              mountPath: /etc/gitlab
+            - name: gitlab-logs
+              mountPath: /var/log/gitlab
+            - name: gitlab-data
+              mountPath: /var/opt/gitlab
+          resources:
+            requests:
+              cpu: 250m
+              memory: 2Gi
+            limits:
+              cpu: 2
+              memory: 6Gi
+  volumeClaimTemplates:
+    - metadata:
+        name: gitlab-config
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 5Gi
+    - metadata:
+        name: gitlab-logs
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 5Gi
+    - metadata:
+        name: gitlab-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 20Gi
