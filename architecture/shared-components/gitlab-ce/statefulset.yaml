@@ -20,6 +20,8 @@ spec:
         app: gitlab-ce
     spec:
       securityContext:
+        runAsUser: 0
+        runAsGroup: 0
         fsGroup: 1000
       containers:
         - name: gitlab-ce
