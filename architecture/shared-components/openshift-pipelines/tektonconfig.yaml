@@ -12,7 +12,6 @@ spec:
   pipeline:
     default-service-account: pipeline
     disable-affinity-assistant: false
-    disable-home-env-overwrite: false
     disable-working-directory-overwrite: false
     enable-api-fields: stable
     enable-bundles-resolver: true
