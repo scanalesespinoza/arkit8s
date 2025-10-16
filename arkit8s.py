@@ -1109,6 +1109,32 @@ def validate_cluster(args: argparse.Namespace, quiet: bool = False) -> int:
                 print(f"Deployment no listo en {ns}: {cols[0]}", file=sys.stderr)
                 return 1
     if not quiet:
+        print("🧱 Verificando StatefulSets en estado Ready...")
+    for ns in namespaces:
+        proc = subprocess.run(
+            ["oc", "get", "statefulset", "-n", ns, "--no-headers"],
+            capture_output=True,
+            text=True,
+        )
+        if proc.returncode != 0:
+            continue
+        for line in proc.stdout.splitlines():
+            cols = line.split()
+            if len(cols) < 2:
+                continue
+            ready = cols[1]
+            if "/" in ready:
+                try:
+                    current, desired = (int(x) for x in ready.split("/", 1))
+                except ValueError:
+                    current = desired = 0
+                if current != desired:
+                    print(
+                        f"StatefulSet no listo en {ns}: {cols[0]}",
+                        file=sys.stderr,
+                    )
+                    return 1
+    if not quiet:
         print("🚨 Verificando pods sin errores ni reinicios...")
     for ns in namespaces:
         proc = subprocess.run(["oc", "get", "pods", "-n", ns, "--no-headers"], capture_output=True, text=True)
@@ -1136,6 +1162,60 @@ def validate_cluster(args: argparse.Namespace, quiet: bool = False) -> int:
                 file=sys.stderr,
             )
             return 1
+    components = [c for c in _load_default_components() if c.namespace in namespaces]
+    if components:
+        if not quiet:
+            print("🧩 Verificando componentes declarados en architecture/...")
+        route_map: dict[tuple[str, str], str] = {}
+        route_error: str | None = None
+        if any(component.route_name for component in components):
+            route_map, route_error = _fetch_cluster_routes()
+            if route_error:
+                print(route_error, file=sys.stderr)
+                return 1
+        for component in components:
+            is_ready, message = _check_workload_status(component)
+            if not is_ready:
+                print(
+                    (
+                        f"Componente no operativo: {component.namespace}/{component.name}"
+                        f" ({component.kind}) → {message}"
+                    ),
+                    file=sys.stderr,
+                )
+                return 1
+        for component in components:
+            if not component.route_name:
+                continue
+            host = route_map.get((component.namespace, component.route_name))
+            expected_host = component.expected_route_host or "desconocido"
+            if not host:
+                print(
+                    (
+                        "Route faltante: "
+                        f"{component.namespace}/{component.route_name} (esperada {expected_host})"
+                    ),
+                    file=sys.stderr,
+                )
+                return 1
+            if component.expected_route_host and host != component.expected_route_host:
+                print(
+                    (
+                        f"Route con host inesperado: {component.namespace}/{component.route_name} "
+                        f"(actual {host}, esperado {component.expected_route_host})"
+                    ),
+                    file=sys.stderr,
+                )
+                return 1
+            route_ok, route_msg = _probe_route(host)
+            if not route_ok:
+                print(
+                    (
+                        f"Route inalcanzable: {component.namespace}/{component.route_name} → {route_msg}"
+                    ),
+                    file=sys.stderr,
+                )
+                return 1
     if not quiet:
         print(f"🔄 Verificando sincronización de manifiestos para {env}...")
     if shutil.which("diff") is None:
