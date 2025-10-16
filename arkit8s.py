@@ -2417,4 +2417,9 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     code = main()
+    if sys.platform.startswith("win") and sys.stdin is not None and sys.stdin.isatty():
+        try:
+            input("\nPresiona Enter para cerrar la ventana...")
+        except EOFError:
+            pass
     sys.exit(code)
