@@ -104,28 +104,9 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           merge-method: squash
           pull-request-number: ${{ github.event.pull_request.number }}
-      - name: Delete PR branch on merge
-        uses: actions/github-script@v6
-        with:
-          script: |
-            const result = await github.graphql(`
-              mutation($input: UpdatePullRequestInput!) {
-                updatePullRequest(input: $input) {
-                  pullRequest {
-                    number
-                  }
-                }
-              }
-            `, {
-              input: {
-                pullRequestId: '${{ github.event.pull_request.node_id }}',
-                deleteHeadRefOnMerge: true
-              }
-            });
-            const pullRequest = result?.updatePullRequest?.pullRequest;
-            if (!pullRequest?.number) {
-              core.setFailed('Failed to enable PR head branch deletion.');
-            }
+      - name: Configure PR branch deletion
+        run: |
+          echo "Skipping deleteHeadRefOnMerge configuration; handled by delete-merged-branch workflow."
 
   automerge-with-architects:
     name: Enable auto-merge (with architects-console build)
@@ -150,25 +131,6 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           merge-method: squash
           pull-request-number: ${{ github.event.pull_request.number }}
-      - name: Delete PR branch on merge
-        uses: actions/github-script@v6
-        with:
-          script: |
-            const result = await github.graphql(`
-              mutation($input: UpdatePullRequestInput!) {
-                updatePullRequest(input: $input) {
-                  pullRequest {
-                    number
-                  }
-                }
-              }
-            `, {
-              input: {
-                pullRequestId: '${{ github.event.pull_request.node_id }}',
-                deleteHeadRefOnMerge: true
-              }
-            });
-            const pullRequest = result?.updatePullRequest?.pullRequest;
-            if (!pullRequest?.number) {
-              core.setFailed('Failed to enable PR head branch deletion.');
-            }
+      - name: Configure PR branch deletion
+        run: |
+          echo "Skipping deleteHeadRefOnMerge configuration; handled by delete-merged-branch workflow."
