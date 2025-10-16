@@ -17,6 +17,7 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 public class ConsolePage {
 
     private final CommandCatalog catalog;
+    private final InstallationStatusCatalog installationCatalog;
     private final Template dashboard;
     private final String title;
     private final String description;
@@ -24,10 +25,12 @@ public class ConsolePage {
     @Inject
     public ConsolePage(
             CommandCatalog catalog,
+            InstallationStatusCatalog installationCatalog,
             @Location("dashboard.qute.html") Template dashboard,
             @ConfigProperty(name = "arkit8s.console.title") String title,
             @ConfigProperty(name = "arkit8s.console.description") String description) {
         this.catalog = catalog;
+        this.installationCatalog = installationCatalog;
         this.dashboard = dashboard;
         this.title = title;
         this.description = description;
@@ -37,9 +40,11 @@ public class ConsolePage {
     @Produces(MediaType.TEXT_HTML)
     public TemplateInstance get() {
         var snapshot = catalog.snapshot();
+        var installation = installationCatalog.snapshot();
         return dashboard.data(
                 "commands", snapshot.commands(),
                 "generatedAt", snapshot.generatedAt(),
+                "installation", installation,
                 "title", title,
                 "description", description);
     }
