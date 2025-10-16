@@ -12,6 +12,8 @@ qué estrategia conviene seguir cuando surgen dudas sobre el alcance del modelo.
    - El comando tokeniza los archivos admitidos, genera fragmentos de texto de hasta 1 200
      caracteres y ajusta un codificador neural pequeño almacenado en `tmp/assistant_model.pkl`.
    - El entrenamiento tarda segundos y no requiere GPU ni dependencias externas.
+   - Desde la versión actual, el proceso incorpora automáticamente descripciones de cada comando
+     del CLI para que el asistente reconozca mejor cuándo sugerirlos.
 3. Vuelve a lanzar tus consultas libres (sin grupo ni comando) para obtener la respuesta
    enriquecida con la información recién incorporada.
 
@@ -43,6 +45,9 @@ proyecto.
 - Agrupa las ideas en párrafos concisos; cada párrafo debería responder una duda concreta.
 - Tras modificar los archivos, recuerda versionarlos con `git` y repetir el entrenamiento del
   asistente.
+- Si quieres que el asistente recomiende un comando concreto, asegúrate de que su descripción y
+  resumen reflejen claramente el problema que resuelve; el entrenamiento reutiliza esos textos
+  para alimentar su vocabulario.
 
 Siguiendo este flujo, el asistente responderá de forma consistente y alineada a las necesidades
 del CLI sin incurrir en los costos de modelos de mayor tamaño.
