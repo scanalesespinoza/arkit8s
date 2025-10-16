@@ -40,7 +40,7 @@
       }
       main {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
         gap: 1.5rem;
         padding: 2rem;
       }
@@ -57,6 +57,79 @@
       h2 {
         margin: 0;
         font-size: 1.6rem;
+      }
+      h3 {
+        margin: 0;
+        font-size: 1.2rem;
+      }
+      .install-grid {
+        display: grid;
+        gap: 1rem;
+      }
+      .install-grid strong {
+        display: block;
+        font-size: 0.85rem;
+        opacity: 0.75;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+      .status-pill {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.35rem 0.8rem;
+        border-radius: 999px;
+        background: rgba(59, 130, 246, 0.2);
+        border: 1px solid rgba(59, 130, 246, 0.35);
+        font-size: 0.85rem;
+        font-weight: 600;
+      }
+      .phase-list {
+        display: grid;
+        gap: 0.75rem;
+      }
+      .phase-card {
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        border-radius: 12px;
+        padding: 0.85rem 1rem;
+        background: rgba(15, 23, 42, 0.45);
+        display: grid;
+        gap: 0.35rem;
+      }
+      .phase-card header {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 1rem;
+        font-weight: 600;
+      }
+      .phase-meta {
+        font-size: 0.8rem;
+        opacity: 0.75;
+      }
+      .resource-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9rem;
+      }
+      .resource-table th,
+      .resource-table td {
+        padding: 0.55rem 0.75rem;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+        text-align: left;
+      }
+      .resource-table tbody tr:last-child td {
+        border-bottom: none;
+      }
+      .resource-table th {
+        font-weight: 600;
+        opacity: 0.75;
+        text-transform: uppercase;
+        font-size: 0.75rem;
+        letter-spacing: 0.06em;
+      }
+      .empty-state {
+        font-style: italic;
+        opacity: 0.8;
       }
       .command-list {
         list-style: none;
@@ -150,6 +223,89 @@
       <span class="meta">Última sincronización del catálogo: {generatedAt}</span>
     </header>
     <main>
+      <section id="installation-section">
+        <h2>Instalación de la arquitectura de referencia</h2>
+        <div class="install-grid" id="installation-summary">
+          <div>
+            <strong>Arquitectura</strong>
+            <span>{installation.architecture ?: 'Arquitectura de referencia'}</span>
+          </div>
+          <div>
+            <strong>Estado actual</strong>
+            <span class="status-pill">{installation.status ?: 'SIN_DATOS'}</span>
+          </div>
+          <div>
+            <strong>Detalle</strong>
+            <span>{installation.detail ?: 'Sin detalles registrados.'}</span>
+          </div>
+          <div>
+            <strong>Progreso</strong>
+            {#if installation.progress >= 0}
+              <span>{installation.progress}% completado</span>
+            {#else}
+              <span>Sin datos de progreso.</span>
+            {/if}
+          </div>
+          <div>
+            <strong>Última actualización</strong>
+            <span>{installation.generatedAt}</span>
+          </div>
+        </div>
+        <div>
+          <h3>Fases de despliegue</h3>
+          <div class="phase-list" id="phase-list">
+            {#if installation.phases.isEmpty}
+              <p class="empty-state">Aún no se registran fases de instalación.</p>
+            {#else}
+              {#for phase in installation.phases}
+                <article class="phase-card">
+                  <header>
+                    <span>{phase.name}</span>
+                    <span class="status-pill">{phase.status}</span>
+                  </header>
+                  <p>{phase.detail ?: 'Sin detalles adicionales.'}</p>
+                  <span class="phase-meta">Inicio: {phase.startedAt ?: '-'} · Fin: {phase.completedAt ?: '-'}</span>
+                </article>
+              {/for}
+            {/if}
+          </div>
+        </div>
+        <div>
+          <h3>Recursos instanciados</h3>
+          <div class="resource-table-wrapper">
+            <table class="resource-table" id="resource-table">
+              <thead>
+                <tr>
+                  <th>Tipo</th>
+                  <th>Nombre</th>
+                  <th>Namespace</th>
+                  <th>Estado</th>
+                  <th>Mensaje</th>
+                  <th>Edad</th>
+                </tr>
+              </thead>
+              <tbody>
+                {#if installation.resources.isEmpty}
+                  <tr>
+                    <td colspan="6" class="empty-state">No hay recursos reportados todavía.</td>
+                  </tr>
+                {#else}
+                  {#for resource in installation.resources}
+                    <tr>
+                      <td>{resource.kind}</td>
+                      <td>{resource.name}</td>
+                      <td>{resource.namespace}</td>
+                      <td>{resource.status}</td>
+                      <td>{resource.message ?: '-'}</td>
+                      <td>{resource.age ?: '-'}</td>
+                    </tr>
+                  {/for}
+                {/if}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
       <section>
         <h2>Comandos del CLI</h2>
         <ul class="command-list">
@@ -184,6 +340,115 @@
       La consola web observa el archivo configurado en <code>arkit8s.console.commands-path</code>.
     </footer>
     <script>
+      const initialInstallation = {
+        architecture: {installation.architecture | json},
+        generatedAt: {installation.generatedAt | json},
+        status: {installation.status | json},
+        progress: {installation.progress},
+        detail: {installation.detail | json},
+        phases: {#if installation.phases.isEmpty}[]{#else}[
+          {#for phase in installation.phases}
+          {
+            "name": {phase.name | json},
+            "status": {phase.status | json},
+            "detail": {phase.detail | json},
+            "startedAt": {phase.startedAt | json},
+            "completedAt": {phase.completedAt | json}
+          }{#if !phase_hasNext},{/if}
+          {/for}
+        ]{/if},
+        resources: {#if installation.resources.isEmpty}[]{#else}[
+          {#for resource in installation.resources}
+          {
+            "kind": {resource.kind | json},
+            "name": {resource.name | json},
+            "namespace": {resource.namespace | json},
+            "status": {resource.status | json},
+            "message": {resource.message | json},
+            "age": {resource.age | json}
+          }{#if !resource_hasNext},{/if}
+          {/for}
+        ]{/if}
+      };
+
+      function renderInstallationStatus(data) {
+        const summary = document.getElementById('installation-summary');
+        if (summary) {
+          summary.innerHTML = `
+            <div>
+              <strong>Arquitectura</strong>
+              <span>${data.architecture || 'Arquitectura de referencia'}</span>
+            </div>
+            <div>
+              <strong>Estado actual</strong>
+              <span class="status-pill">${data.status || 'SIN_DATOS'}</span>
+            </div>
+            <div>
+              <strong>Detalle</strong>
+              <span>${data.detail || 'Sin detalles registrados.'}</span>
+            </div>
+            <div>
+              <strong>Progreso</strong>
+              <span>${Number.isInteger(data.progress) && data.progress >= 0 ? `${data.progress}% completado` : 'Sin datos de progreso.'}</span>
+            </div>
+            <div>
+              <strong>Última actualización</strong>
+              <span>${data.generatedAt || 'Sin registro'}</span>
+            </div>`;
+        }
+
+        const phasesContainer = document.getElementById('phase-list');
+        if (phasesContainer) {
+          if (!data.phases || data.phases.length === 0) {
+            phasesContainer.innerHTML = '<p class="empty-state">Aún no se registran fases de instalación.</p>';
+          } else {
+            phasesContainer.innerHTML = data.phases
+              .map((phase) => `
+                <article class="phase-card">
+                  <header>
+                    <span>${phase.name}</span>
+                    <span class="status-pill">${phase.status}</span>
+                  </header>
+                  <p>${phase.detail || 'Sin detalles adicionales.'}</p>
+                  <span class="phase-meta">Inicio: ${phase.startedAt || '-'} · Fin: ${phase.completedAt || '-'}</span>
+                </article>`)
+              .join('');
+          }
+        }
+
+        const resourceTable = document.querySelector('#resource-table tbody');
+        if (resourceTable) {
+          if (!data.resources || data.resources.length === 0) {
+            resourceTable.innerHTML = '<tr><td colspan="6" class="empty-state">No hay recursos reportados todavía.</td></tr>';
+          } else {
+            resourceTable.innerHTML = data.resources
+              .map((resource) => `
+                <tr>
+                  <td>${resource.kind}</td>
+                  <td>${resource.name}</td>
+                  <td>${resource.namespace}</td>
+                  <td>${resource.status}</td>
+                  <td>${resource.message || '-'}</td>
+                  <td>${resource.age || '-'}</td>
+                </tr>`)
+              .join('');
+          }
+        }
+      }
+
+      async function fetchInstallationStatus() {
+        try {
+          const response = await fetch('/api/installation');
+          if (!response.ok) {
+            return;
+          }
+          const data = await response.json();
+          renderInstallationStatus(data);
+        } catch (err) {
+          console.error('No fue posible actualizar el estado de la instalación', err);
+        }
+      }
+
       async function fetchEvents() {
         const response = await fetch('/api/events');
         if (!response.ok) return;
@@ -216,9 +481,12 @@
         });
       }
 
+      renderInstallationStatus(initialInstallation);
       setupCopyButtons();
       fetchEvents();
+      fetchInstallationStatus();
       setInterval(fetchEvents, 5000);
+      setInterval(fetchInstallationStatus, 7000);
     </script>
   </body>
 </html>
