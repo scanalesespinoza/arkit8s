@@ -8,3 +8,4 @@ resources:
   - console-commands-configmap.yaml
   - deployment.yaml
   - service.yaml
+  - route.yaml

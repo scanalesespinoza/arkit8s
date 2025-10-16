@@ -47,6 +47,9 @@ El script `arkit8s.py` centraliza las tareas operativas de la plataforma. Todos 
 ### Flujo sugerido
 
 1. **Instala** los manifiestos del entorno: `./arkit8s.py install --env sandbox`.
+   Al finalizar el comando se genera `tmp/command-output.out` con un resumen de las Routes
+   detectadas (incluyendo las URLs de acceso de los productos principales). Consulta ese
+   archivo para verificar rápidamente los puntos de entrada expuestos.
 2. **Valida** que el clúster quedó en sincronía: `./arkit8s.py validate-cluster --env sandbox`.
 3. **Monitorea** durante unos minutos para detectar desincronizaciones: `./arkit8s.py watch --env sandbox --minutes 5`.
 4. **Genera reportes** o valida metadatos según sea necesario.
@@ -86,7 +89,7 @@ El script `arkit8s.py` centraliza las tareas operativas de la plataforma. Todos 
 1. Ejecuta `python arkit8s.py sync-web-console` tras añadir o modificar comandos del CLI. Este paso genera `architecture/support-domain/architects-visualization/console-commands-configmap.yaml` con la descripción y el `usage` de cada subcomando.
 2. Construye la nueva imagen Quarkus/Qute si deseas publicarla en tu propio registro: `mvn -pl support-domain/architects-console package -Dquarkus.container-image.build=true -Dquarkus.container-image.image=quay.io/arkit8s/architects-console:latest`.
 3. Aplica los manifiestos (`./arkit8s.py install --env sandbox`) para desplegar el `Deployment` que usa directamente la imagen `quay.io/arkit8s/architects-console:latest`, montando tanto la configuración Qute como los comandos generados sin necesidad de compilar en el clúster.
-4. Expone el servicio `architects-visualization` mediante un `Route` o `oc port-forward svc/architects-visualization 8080` para acceder a la interfaz inspirada en Kubeland.
+4. El manifiesto ya declara la `Route` `architects-visualization-support-domain.apps-crc.testing`, por lo que basta con ejecutar `./arkit8s.py install --env sandbox` y consultar la URL registrada en `tmp/command-output.out`. Alternativamente, puedes hacer `oc port-forward svc/architects-visualization 8080` para una sesión temporal.
 5. Utiliza la consola web para invocar acciones del CLI desde el navegador, manteniendo sincronía entre operaciones declarativas y observabilidad del plano de control.
 
 #### Ejemplos de uso de simuladores de carga
@@ -104,7 +107,7 @@ Este repositorio incluye un despliegue de referencia de **GitLab Community Editi
 
 1. **Dependencias**: se declara un `StatefulSet` con tres `PersistentVolumeClaim` (configuración, datos y bitácoras). Asegúrate de que el clúster cuente con un *StorageClass* por omisión capaz de aprovisionar volúmenes `ReadWriteOnce` de al menos 20 GiB.
 2. **Credenciales iniciales**: el `Secret` `gitlab-initial-admin` crea el usuario `root` con el correo `root@gitlab.local` y la contraseña `ChangeMe123!`. Personaliza estos valores antes de aplicar los manifiestos para evitar reutilizar credenciales por defecto (`kubectl edit secret/gitlab-initial-admin -n shared-components`).
-3. **URL de acceso**: la `Route` expone la instancia vía `http://gitlab-ce-shared-components.apps-crc.testing`. Si tu dominio de aplicaciones difiere, actualiza `architecture/shared-components/gitlab-ce/configmap-omnibus.yaml` para ajustar la variable `external_url` y el `host` de la `Route`.
+3. **URL de acceso**: la `Route` expone la instancia vía `http://gitlab-ce-shared-components.apps-crc.testing`. Tras instalar, la URL queda registrada en `tmp/command-output.out`. Si tu dominio de aplicaciones difiere, actualiza `architecture/shared-components/gitlab-ce/configmap-omnibus.yaml` para ajustar la variable `external_url` y el `host` de la `Route`.
 4. **Aplicación de manifiestos**: ejecuta `./arkit8s.py install --env sandbox` (o el entorno de tu preferencia). El `StatefulSet` tardará varios minutos en descargar la imagen `gitlab/gitlab-ce:16.9.1-ce.0` y configurar los servicios internos de PostgreSQL y Redis incluidos en la distribución Omnibus.
 5. **Verificación**: consulta el estado con `oc get pods -n shared-components` y espera a que el pod `gitlab-ce-0` se encuentre en `Running`. Recupera la URL desde la `Route` (`oc get route gitlab-ce -n shared-components -o jsonpath='{.spec.host}'`) y accede con las credenciales iniciales.
 6. **Personalización avanzada**: modifica `architecture/shared-components/gitlab-ce/configmap-omnibus.yaml` para añadir parámetros de `gitlab.rb` (por ejemplo SMTP, repositorio de contenedores o certificados TLS). Tras editar el ConfigMap, ejecuta `./arkit8s.py install --env <entorno>` para reconciliar los cambios.
