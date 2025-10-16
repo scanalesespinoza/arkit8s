@@ -50,6 +50,7 @@ El script `arkit8s.py` centraliza las tareas operativas de la plataforma. Todos 
    Al finalizar se genera `tmp/command-output.out` con un resumen de las Routes detectadas.
    Consulta ese archivo para verificar rápidamente los puntos de entrada expuestos.
 2. **Valida** que el clúster quedó en sincronía: `./arkit8s.py cluster validate --env sandbox`.
+   El comando confirma que Deployments, StatefulSets (por ejemplo GitLab CE) y Routes críticas como Keycloak estén disponibles y accesibles antes de continuar.
 3. **Monitorea** durante unos minutos: `./arkit8s.py cluster watch --env sandbox --minutes 5`.
 4. **Genera reportes** o valida metadatos según sea necesario (`metadata report`, `metadata audit`).
 
@@ -68,7 +69,7 @@ El script `arkit8s.py` centraliza las tareas operativas de la plataforma. Todos 
 - `deploy --env <nombre>` – aplica los manifiestos base (`architecture/bootstrap`) y los del entorno indicado en `environments/`, verificando que existan los namespaces esperados.
 - `remove` – elimina los recursos definidos en `architecture/` (incluido bootstrap) sin fallar si ya no existen.
 - `reset --env <nombre>` – borra todos los recursos del entorno indicado, incluidos los namespaces creados por bootstrap.
-- `validate --env <nombre>` – revisa namespaces, deployments, pods y sincronización (`oc diff`) para asegurar que el estado del clúster coincide con los manifiestos.
+- `validate --env <nombre>` – revisa namespaces, deployments, StatefulSets, pods, componentes declarados en `architecture/` (incluidas sus Routes) y sincronización (`oc diff`) para asegurar que el estado del clúster coincide con los manifiestos y que los productos expuestos responden correctamente.
 - `watch --env <nombre> [--minutes <n>] [--detail <default|detailed|all>]` – ejecuta validaciones continuas cada 30 segundos durante el tiempo indicado. Con `--detail` distinto de `default` imprime el inventario de recursos monitoreados.
 
 #### Grupo `pipelines`
