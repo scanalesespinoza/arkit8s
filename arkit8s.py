@@ -9,8 +9,9 @@ import subprocess
 import shutil
 import sys
 import time
-from functools import wraps
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Callable
 
 HELP_START_MARKER = "<!-- BEGIN ARKIT8S HELP -->"
 HELP_END_MARKER = "<!-- END ARKIT8S HELP -->"
@@ -32,31 +33,197 @@ EXPECTED_PRODUCT_ROUTES: dict[tuple[str, str], str] = {
     ("support-domain", "architects-visualization"): "Architects Visualization",
 }
 
-CLI_COMMANDS_HELP: dict[str, str] = {
-    "install": "Aplica los manifiestos base y del entorno seleccionado usando oc apply",
-    "uninstall": "Elimina todos los manifiestos de arquitectura sin fallar si ya no existen",
-    "cleanup": "Borra namespaces y recursos generados por arkit8s para un reinicio limpio",
-    "install-openshift-pipelines": "Instala OpenShift Pipelines aplicando los manifiestos GitOps del repositorio",
-    "cleanup-openshift-pipelines": "Elimina la suscripción y el TektonConfig de OpenShift Pipelines gestionados por GitOps",
-    "install-default": "Despliega el entorno sandbox junto al escenario por defecto y simuladores",
-    "cleanup-default": "Retira el escenario por defecto y limpia por completo el entorno sandbox",
-    "watch": "Monitorea continuamente la sincronía del clúster con los manifiestos",
-    "validate-cluster": "Valida que namespaces, deployments y pods estén sincronizados",
-    "validate-yaml": "Revisa que todos los YAML del repositorio sean sintácticamente válidos",
-    "report": "Genera un reporte Markdown con la trazabilidad de componentes",
-    "validate-metadata": "Comprueba consistencia entre dependencias declaradas y anotaciones",
-    "generate-network-policies": "Deriva NetworkPolicies a partir de las anotaciones de arquitectura",
-    "generate-load-simulators": "Crea despliegues sintéticos para simular carga y fallas controladas",
-    "list-load-simulators": "Lista los simuladores de carga desplegados en el clúster",
-    "cleanup-load-simulators": "Elimina simuladores y limpia manifiestos generados localmente",
-    "create-component": "Genera una instancia de componente basada en el inventario",
-    "sync-web-console": "Exporta la definición de comandos para el plano de control web",
-}
-
 WEB_CONSOLE_DIR = ARCH_DIR / "support-domain" / "architects-visualization"
 WEB_CONSOLE_COMMANDS_CONFIGMAP = WEB_CONSOLE_DIR / "console-commands-configmap.yaml"
 PIPELINES_DIR = ARCH_DIR / "shared-components" / "openshift-pipelines"
 
+
+@dataclass(frozen=True)
+class CommandDefinition:
+    """Describe a CLI command along with its handler and parser configuration."""
+
+    name: str
+    handler: Callable[[argparse.Namespace], int]
+    summary: str
+    description: str | None = None
+    configure: Callable[[argparse.ArgumentParser], None] | None = None
+
+
+@dataclass(frozen=True)
+class CommandGroup:
+    """Group related commands under a shared namespace."""
+
+    name: str
+    summary: str
+    description: str | None
+    commands: tuple[CommandDefinition, ...]
+
+
+BUSINESS_SIM_TARGETS: dict[str, dict[str, str | Path]] = {
+    "api": {
+        "path": ARCH_DIR / "business-domain" / "api",
+        "name_prefix": "api-availability-sim",
+        "simulated_component": "api-app-instance",
+        "function_annotation": "api-load-simulator",
+    },
+    "ui": {
+        "path": ARCH_DIR / "business-domain" / "ui",
+        "name_prefix": "ui-availability-sim",
+        "simulated_component": "ui-app-instance",
+        "function_annotation": "ui-load-simulator",
+    },
+    "company-identity": {
+        "path": ARCH_DIR
+        / "business-domain"
+        / "company-management"
+        / "identity-verification",
+        "name_prefix": "company-identity-availability-sim",
+        "simulated_component": "company-identity-verification-app-instance",
+        "function_annotation": "company-identity-load-simulator",
+    },
+    "person-identity": {
+        "path": ARCH_DIR
+        / "business-domain"
+        / "person-management"
+        / "identity-verification",
+        "name_prefix": "person-identity-availability-sim",
+        "simulated_component": "person-identity-verification-app-instance",
+        "function_annotation": "person-identity-load-simulator",
+    },
+}
+
+
+def _configure_cluster_deploy(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--env",
+        default=DEFAULT_ENV,
+        help="Nombre del entorno en environments/ (por defecto: sandbox).",
+    )
+
+
+def _configure_cluster_reset(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--env",
+        default=DEFAULT_ENV,
+        help="Entorno a limpiar por completo (por defecto: sandbox).",
+    )
+
+
+def _configure_cluster_watch(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--env",
+        default=DEFAULT_ENV,
+        help="Entorno a monitorear (por defecto: sandbox).",
+    )
+    parser.add_argument(
+        "--minutes",
+        type=int,
+        default=5,
+        help="Duración del monitoreo en minutos (por defecto: 5).",
+    )
+    parser.add_argument(
+        "--detail",
+        choices=["default", "detailed", "all"],
+        default="default",
+        help="Nivel de detalle de la salida (default, detailed o all).",
+    )
+
+
+def _configure_cluster_validate(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--env",
+        default=DEFAULT_ENV,
+        help="Entorno a validar (por defecto: sandbox).",
+    )
+
+
+def _configure_scenarios_deploy(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--simulators",
+        type=int,
+        default=DEFAULT_SIMULATOR_COUNT,
+        help="Cantidad de simuladores aleatorios a desplegar (por defecto: 10).",
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        help="Semilla opcional para reproducir la distribución de simuladores.",
+    )
+
+
+def _configure_simulators_generate(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--count",
+        type=int,
+        default=3,
+        help="Número de simuladores por componente (por defecto: 3).",
+    )
+    parser.add_argument(
+        "--targets",
+        nargs="+",
+        choices=sorted(BUSINESS_SIM_TARGETS.keys()),
+        default=sorted(BUSINESS_SIM_TARGETS.keys()),
+        help="Componentes de negocio a los que se agregará carga (por defecto: todos).",
+    )
+    parser.add_argument(
+        "--branch",
+        default="load-simulators",
+        help="Rama local donde se guardarán los manifiestos generados.",
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        help="Semilla para generar comportamientos deterministas.",
+    )
+    parser.add_argument(
+        "--behavior",
+        choices=["dynamic", "ok", "notready", "restart"],
+        help="Comportamiento forzado de los simuladores (por defecto: dinámico).",
+    )
+
+
+def _configure_simulators_cleanup(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--targets",
+        nargs="+",
+        choices=sorted(BUSINESS_SIM_TARGETS.keys()),
+        help="Componentes cuyas definiciones de simulador se eliminarán.",
+    )
+    parser.add_argument(
+        "--branch",
+        default="load-simulators",
+        help="Rama local que contiene los manifiestos generados.",
+    )
+    parser.add_argument(
+        "--delete-branch",
+        action="store_true",
+        help="Elimina la rama local indicada tras limpiar los manifiestos.",
+    )
+
+
+def _configure_components_create(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("name", help="Nombre del componente a crear.")
+    parser.add_argument("--type", required=True, help="Tipo según component_inventory.yaml.")
+    parser.add_argument(
+        "--domain",
+        required=True,
+        choices=["business", "support", "shared"],
+        help="Dominio donde residirá el componente.",
+    )
+    parser.add_argument("--function", help="Sobrescribe la anotación architecture.function.")
+    parser.add_argument(
+        "--depends-incluster",
+        help="Dependencias dentro del clúster separadas por comas.",
+    )
+    parser.add_argument(
+        "--depends-outcluster",
+        help="Dependencias externas separadas por comas.",
+    )
+    parser.add_argument(
+        "--branch",
+        default="component-instances",
+        help="Rama local donde se almacenarán los manifiestos creados.",
+    )
 
 def _load_usage_text() -> str:
     """Return the README help block so CLI help matches documentation."""
@@ -76,32 +243,6 @@ def _load_usage_text() -> str:
 
 
 USAGE_TEXT = _load_usage_text()
-
-
-def _await_confirmation(message: str = "¿Desea finalizar? (Y/N) ") -> None:
-    """Prompt the user until a Y/N confirmation is provided."""
-
-    while True:
-        resp = input(message).strip().lower()
-        if resp in {"y", "n"}:
-            if resp == "y":
-                return
-            print("Operación en espera de confirmación. Responda 'Y' para finalizar.")
-        else:
-            print("Respuesta inválida. Ingrese 'Y' o 'N'.")
-
-
-def _confirm_command(func):
-    """Wrap CLI commands so they wait for a Y/N confirmation before finishing."""
-
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        result = func(*args, **kwargs)
-        print("Tarea finalizada")
-        _await_confirmation("¿Desea salir? (Y/N) ")
-        return result
-
-    return wrapper
 
 
 def run(cmd: list[str], check: bool = True) -> subprocess.CompletedProcess:
@@ -334,19 +475,35 @@ def sync_web_console(_args: argparse.Namespace) -> int:
     parser = build_parser()
     commands: list[dict[str, str]] = []
 
-    sub_actions = [
+    summary_lookup = {
+        f"{group.name} {cmd.name}": cmd.summary
+        for group in COMMAND_GROUPS
+        for cmd in group.commands
+    }
+
+    top_level = [
         action
         for action in parser._actions
         if isinstance(action, argparse._SubParsersAction)
     ]
+    if not top_level:
+        return 1
 
-    for sub_action in sub_actions:
-        for name, subparser in sorted(sub_action.choices.items()):
-            usage = " ".join(subparser.format_usage().split())
-            summary = CLI_COMMANDS_HELP.get(name, usage)
+    for group_name, group_parser in sorted(top_level[0].choices.items()):
+        nested = [
+            action
+            for action in group_parser._actions
+            if isinstance(action, argparse._SubParsersAction)
+        ]
+        if not nested:
+            continue
+        for command_name, command_parser in sorted(nested[0].choices.items()):
+            full_name = f"{group_name} {command_name}"
+            usage = " ".join(command_parser.format_usage().split())
+            summary = summary_lookup.get(full_name, usage)
             commands.append(
                 {
-                    "name": name,
+                    "name": full_name,
                     "summary": summary,
                     "usage": usage,
                 }
@@ -388,189 +545,6 @@ def sync_web_console(_args: argparse.Namespace) -> int:
     )
     print(f"📦 ConfigMap de comandos actualizada en {WEB_CONSOLE_COMMANDS_CONFIGMAP}")
     return 0
-
-
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description=USAGE_TEXT,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
-    sub = parser.add_subparsers(dest="command")
-
-    p_install = sub.add_parser("install", help=CLI_COMMANDS_HELP["install"])
-    p_install.add_argument("--env", default="sandbox", help="Target environment")
-    p_install.set_defaults(func=_confirm_command(install))
-
-    p_uninstall = sub.add_parser("uninstall", help=CLI_COMMANDS_HELP["uninstall"])
-    p_uninstall.set_defaults(func=_confirm_command(uninstall))
-
-    p_cleanup_all = sub.add_parser(
-        "cleanup",
-        help=CLI_COMMANDS_HELP["cleanup"],
-    )
-    p_cleanup_all.add_argument("--env", default="sandbox", help="Entorno a limpiar")
-    p_cleanup_all.set_defaults(func=_confirm_command(cleanup))
-
-    p_install_pipelines = sub.add_parser(
-        "install-openshift-pipelines",
-        help=CLI_COMMANDS_HELP["install-openshift-pipelines"],
-    )
-    p_install_pipelines.set_defaults(func=_confirm_command(install_openshift_pipelines))
-
-    p_cleanup_pipelines = sub.add_parser(
-        "cleanup-openshift-pipelines",
-        help=CLI_COMMANDS_HELP["cleanup-openshift-pipelines"],
-    )
-    p_cleanup_pipelines.set_defaults(func=_confirm_command(cleanup_openshift_pipelines))
-
-    p_install_default = sub.add_parser(
-        "install-default",
-        help=CLI_COMMANDS_HELP["install-default"],
-    )
-    p_install_default.add_argument(
-        "--simulators",
-        type=int,
-        default=DEFAULT_SIMULATOR_COUNT,
-        help="Cantidad de simuladores aleatorios a desplegar (por defecto 10)",
-    )
-    p_install_default.add_argument(
-        "--seed",
-        type=int,
-        help="Semilla opcional para obtener una distribución determinista de simuladores",
-    )
-    p_install_default.set_defaults(func=_confirm_command(install_default))
-
-    p_cleanup_default = sub.add_parser(
-        "cleanup-default",
-        help=CLI_COMMANDS_HELP["cleanup-default"],
-    )
-    p_cleanup_default.set_defaults(func=_confirm_command(cleanup_default))
-
-    p_watch = sub.add_parser("watch", help=CLI_COMMANDS_HELP["watch"])
-    p_watch.add_argument("--minutes", type=int, default=5, help="Duration in minutes")
-    p_watch.add_argument("--detail", choices=["default", "detailed", "all"], default="default")
-    p_watch.add_argument("--env", default="sandbox")
-    p_watch.set_defaults(func=_confirm_command(watch))
-
-    p_validate = sub.add_parser("validate-cluster", help=CLI_COMMANDS_HELP["validate-cluster"])
-    p_validate.add_argument("--env", default="sandbox")
-    p_validate.set_defaults(func=_confirm_command(validate_cluster))
-
-    p_yaml = sub.add_parser("validate-yaml", help=CLI_COMMANDS_HELP["validate-yaml"])
-    p_yaml.set_defaults(func=_confirm_command(validate_yaml))
-
-    p_report = sub.add_parser("report", help=CLI_COMMANDS_HELP["report"])
-    p_report.set_defaults(func=_confirm_command(report))
-
-    p_meta = sub.add_parser(
-        "validate-metadata",
-        help=CLI_COMMANDS_HELP["validate-metadata"],
-    )
-    p_meta.set_defaults(func=_confirm_command(validate_metadata))
-
-    p_gen_np = sub.add_parser(
-        "generate-network-policies",
-        help=CLI_COMMANDS_HELP["generate-network-policies"],
-    )
-    p_gen_np.set_defaults(func=_confirm_command(generate_network_policies))
-
-    p_sim = sub.add_parser(
-        "generate-load-simulators",
-        help=CLI_COMMANDS_HELP["generate-load-simulators"],
-    )
-    p_sim.add_argument(
-        "--count",
-        type=int,
-        default=3,
-        help="Number of simulator deployments per target (default: 3)",
-    )
-    p_sim.add_argument(
-        "--targets",
-        nargs="+",
-        choices=sorted(BUSINESS_SIM_TARGETS.keys()),
-        default=sorted(BUSINESS_SIM_TARGETS.keys()),
-        help="Business components to simulate (default: all)",
-    )
-    p_sim.add_argument(
-        "--branch",
-        default="load-simulators",
-        help="Local git branch to store generated manifests",
-    )
-    p_sim.add_argument(
-        "--seed",
-        type=int,
-        help="Optional random seed to obtain deterministic behavior scheduling",
-    )
-    p_sim.add_argument(
-        "--behavior",
-        choices=["dynamic", "ok", "notready", "restart"],
-        help="Override the runtime behavior of generated simulators (default: dynamic)",
-    )
-    p_sim.set_defaults(func=_confirm_command(generate_load_simulators))
-
-    p_list_sim = sub.add_parser(
-        "list-load-simulators",
-        help=CLI_COMMANDS_HELP["list-load-simulators"],
-    )
-    p_list_sim.set_defaults(func=_confirm_command(list_load_simulators))
-
-    p_cleanup_sims = sub.add_parser(
-        "cleanup-load-simulators",
-        help=CLI_COMMANDS_HELP["cleanup-load-simulators"],
-    )
-    p_cleanup_sims.add_argument(
-        "--targets",
-        nargs="+",
-        choices=sorted(BUSINESS_SIM_TARGETS.keys()),
-        help="Componentes para los que se limpiarán los manifiestos",
-    )
-    p_cleanup_sims.add_argument(
-        "--branch",
-        default="load-simulators",
-        help="Rama local que contiene los manifiestos generados",
-    )
-    p_cleanup_sims.add_argument(
-        "--delete-branch",
-        action="store_true",
-        help="Eliminar la rama local indicada tras limpiar los manifiestos",
-    )
-    p_cleanup_sims.set_defaults(func=_confirm_command(cleanup_load_simulators))
-
-    p_new = sub.add_parser(
-        "create-component",
-        help=CLI_COMMANDS_HELP["create-component"],
-    )
-    p_new.add_argument("name", help="Component instance name")
-    p_new.add_argument("--type", required=True, help="Component type from inventory")
-    p_new.add_argument(
-        "--domain",
-        required=True,
-        choices=["business", "support", "shared"],
-        help="Target domain short name",
-    )
-    p_new.add_argument("--function", help="Override function annotation")
-    p_new.add_argument(
-        "--depends-incluster",
-        help="Comma-separated list of in-cluster dependencies (e.g. api-user-svc, integration-token-svc)",
-    )
-    p_new.add_argument(
-        "--depends-outcluster",
-        help="Comma-separated list of out-of-cluster dependencies (e.g. https://auth0.example.com)",
-    )
-    p_new.add_argument(
-        "--branch",
-        default="component-instances",
-        help="Local git branch to store generated manifests",
-    )
-    p_new.set_defaults(func=_confirm_command(create_component))
-
-    p_sync = sub.add_parser(
-        "sync-web-console",
-        help=CLI_COMMANDS_HELP["sync-web-console"],
-    )
-    p_sync.set_defaults(func=sync_web_console)
-
-    return parser
 
 
 def _collect_serviceaccounts() -> set[tuple[str, str]]:
@@ -923,40 +897,6 @@ def report(_args: argparse.Namespace) -> int:
         print(f"- {c['name']} -> {c['file']}")
     print()
     return 0
-
-
-BUSINESS_SIM_TARGETS: dict[str, dict[str, str | Path]] = {
-    "api": {
-        "path": ARCH_DIR / "business-domain" / "api",
-        "name_prefix": "api-availability-sim",
-        "simulated_component": "api-app-instance",
-        "function_annotation": "api-load-simulator",
-    },
-    "ui": {
-        "path": ARCH_DIR / "business-domain" / "ui",
-        "name_prefix": "ui-availability-sim",
-        "simulated_component": "ui-app-instance",
-        "function_annotation": "ui-load-simulator",
-    },
-    "company-identity": {
-        "path": ARCH_DIR
-        / "business-domain"
-        / "company-management"
-        / "identity-verification",
-        "name_prefix": "company-identity-availability-sim",
-        "simulated_component": "company-identity-verification-app-instance",
-        "function_annotation": "company-identity-load-simulator",
-    },
-    "person-identity": {
-        "path": ARCH_DIR
-        / "business-domain"
-        / "person-management"
-        / "identity-verification",
-        "name_prefix": "person-identity-availability-sim",
-        "simulated_component": "person-identity-verification-app-instance",
-        "function_annotation": "person-identity-load-simulator",
-    },
-}
 
 
 def _build_default_simulator_manifest(
@@ -1722,6 +1662,207 @@ spec:
 
     print(f"Componente {args.name} creado en {comp_dir}")
     return 0
+
+
+COMMAND_GROUPS: tuple[CommandGroup, ...] = (
+    CommandGroup(
+        name="cluster",
+        summary="Instala, valida y monitorea entornos declarativos de arkit8s.",
+        description=(
+            "Acciones principales para reconciliar los manifiestos y revisar que el "
+            "clúster permanezca en sincronía con el repositorio."
+        ),
+        commands=(
+            CommandDefinition(
+                name="deploy",
+                handler=install,
+                summary="Aplica bootstrap y el overlay del entorno seleccionado.",
+                description="Aplica los manifiestos base y del entorno definido en environments/.",
+                configure=_configure_cluster_deploy,
+            ),
+            CommandDefinition(
+                name="remove",
+                handler=uninstall,
+                summary="Elimina los manifiestos aplicados sin fallar si ya no existen.",
+                description="Ejecuta oc delete sobre la arquitectura completa para limpiar recursos declarados.",
+            ),
+            CommandDefinition(
+                name="reset",
+                handler=cleanup,
+                summary="Borra recursos y namespaces del entorno indicado.",
+                description="Elimina el overlay del entorno y los namespaces bootstrap para iniciar desde cero.",
+                configure=_configure_cluster_reset,
+            ),
+            CommandDefinition(
+                name="validate",
+                handler=validate_cluster,
+                summary="Revisa namespaces, deployments, pods y diferencias declarativas.",
+                description="Valida que el estado del clúster coincida con los manifiestos del entorno seleccionado.",
+                configure=_configure_cluster_validate,
+            ),
+            CommandDefinition(
+                name="watch",
+                handler=watch,
+                summary="Ejecuta validaciones periódicas para detectar desincronizaciones.",
+                description="Monitorea cada 30 segundos el estado del clúster mostrando diferencias y recursos relevantes.",
+                configure=_configure_cluster_watch,
+            ),
+        ),
+    ),
+    CommandGroup(
+        name="pipelines",
+        summary="Administra la instalación GitOps de OpenShift Pipelines.",
+        description="Comandos dedicados a habilitar o retirar Tekton gestionado por manifiestos declarativos.",
+        commands=(
+            CommandDefinition(
+                name="install",
+                handler=install_openshift_pipelines,
+                summary="Aplica la suscripción y TektonConfig gestionados por GitOps.",
+                description="Instala OpenShift Pipelines esperando hasta que TektonConfig/config quede en condición Ready.",
+            ),
+            CommandDefinition(
+                name="cleanup",
+                handler=cleanup_openshift_pipelines,
+                summary="Elimina la suscripción y limpia el proyecto openshift-pipelines.",
+                description="Retira los recursos gestionados por GitOps y solicita la eliminación del namespace generado.",
+            ),
+        ),
+    ),
+    CommandGroup(
+        name="scenarios",
+        summary="Gestiona escenarios de simulación preconfigurados.",
+        description="Acciones empaquetadas que combinan despliegues y simuladores listos para probar arkit8s.",
+        commands=(
+            CommandDefinition(
+                name="deploy-default",
+                handler=install_default,
+                summary="Instala el entorno sandbox y distribuye simuladores aleatorios.",
+                description="Despliega el escenario default generando simuladores distribuidos entre los componentes disponibles.",
+                configure=_configure_scenarios_deploy,
+            ),
+            CommandDefinition(
+                name="cleanup-default",
+                handler=cleanup_default,
+                summary="Elimina simuladores y limpia el entorno sandbox.",
+                description="Retira el escenario por defecto y deja el entorno listo para una reinstalación limpia.",
+            ),
+        ),
+    ),
+    CommandGroup(
+        name="simulators",
+        summary="Orquesta simuladores de carga para componentes de negocio.",
+        description="Herramientas para generar, listar y limpiar despliegues sintéticos que ejercitan la arquitectura.",
+        commands=(
+            CommandDefinition(
+                name="generate",
+                handler=generate_load_simulators,
+                summary="Crea manifiestos y despliegues de simuladores por componente.",
+                description="Genera Deployments etiquetados como simuladores y actualiza los kustomization.yaml correspondientes.",
+                configure=_configure_simulators_generate,
+            ),
+            CommandDefinition(
+                name="list",
+                handler=list_load_simulators,
+                summary="Enumera los simuladores desplegados en el clúster.",
+                description="Consulta Deployments etiquetados con arkit8s.simulator=true y muestra su comportamiento actual.",
+            ),
+            CommandDefinition(
+                name="cleanup",
+                handler=cleanup_load_simulators,
+                summary="Elimina simuladores y limpia los manifiestos generados.",
+                description="Borra los Deployments sintéticos, elimina load-simulators.yaml y actualiza kustomization.yaml.",
+                configure=_configure_simulators_cleanup,
+            ),
+        ),
+    ),
+    CommandGroup(
+        name="metadata",
+        summary="Genera reportes y valida anotaciones de arquitectura.",
+        description="Validaciones y utilidades para mantener trazabilidad y dependencias coherentes.",
+        commands=(
+            CommandDefinition(
+                name="lint-yaml",
+                handler=validate_yaml,
+                summary="Verifica la validez sintáctica de los manifiestos YAML.",
+                description="Recorre el repositorio validando todos los archivos YAML excepto kustomization.yaml.",
+            ),
+            CommandDefinition(
+                name="report",
+                handler=report,
+                summary="Genera un reporte Markdown con la trazabilidad de componentes.",
+                description="Produce un resumen de componentes, relaciones y archivos fuente basados en anotaciones architecture.*.",
+            ),
+            CommandDefinition(
+                name="audit",
+                handler=validate_metadata,
+                summary="Comprueba coherencia entre llamadas declaradas y NetworkPolicies.",
+                description="Valida que los campos calls/invoked_by sean recíprocos y que las políticas de red permitan el tráfico.",
+            ),
+            CommandDefinition(
+                name="network-policies",
+                handler=generate_network_policies,
+                summary="Genera NetworkPolicies derivadas de las anotaciones architecture.*.",
+                description="Construye manifiestos de NetworkPolicy en memoria a partir de dependencias declaradas en los componentes.",
+            ),
+        ),
+    ),
+    CommandGroup(
+        name="components",
+        summary="Crea instancias declarativas basadas en el inventario de componentes.",
+        description="Automatiza la generación de carpetas, manifiestos y kustomization por dominio.",
+        commands=(
+            CommandDefinition(
+                name="create",
+                handler=create_component,
+                summary="Genera deployment/service y actualiza el kustomization del dominio.",
+                description="Crea una instancia de componente siguiendo component_inventory.yaml y prepara la rama de trabajo.",
+                configure=_configure_components_create,
+            ),
+        ),
+    ),
+    CommandGroup(
+        name="console",
+        summary="Sincroniza la metadata del CLI con la consola web Architects Visualization.",
+        description="Genera el ConfigMap consumido por la aplicación Quarkus para mostrar los comandos disponibles.",
+        commands=(
+            CommandDefinition(
+                name="sync",
+                handler=sync_web_console,
+                summary="Actualiza el ConfigMap de comandos consumido por la consola web.",
+                description="Exporta nombre, resumen y uso de cada comando para mantener la interfaz web alineada con el CLI.",
+            ),
+        ),
+    ),
+)
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        description=USAGE_TEXT,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    top_level = parser.add_subparsers(dest="group", metavar="<grupo>", required=True)
+
+    for group in COMMAND_GROUPS:
+        group_parser = top_level.add_parser(
+            group.name,
+            help=group.summary,
+            description=group.description or group.summary,
+            formatter_class=argparse.RawDescriptionHelpFormatter,
+        )
+        sub = group_parser.add_subparsers(dest="command", metavar="<comando>", required=True)
+        for command in group.commands:
+            cmd_parser = sub.add_parser(
+                command.name,
+                help=command.summary,
+                description=command.description or command.summary,
+                formatter_class=argparse.RawDescriptionHelpFormatter,
+            )
+            if command.configure:
+                command.configure(cmd_parser)
+            cmd_parser.set_defaults(func=command.handler)
+
+    return parser
 
 
 def main() -> int:
