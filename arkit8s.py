@@ -2391,6 +2391,48 @@ def _default_command_suggestions(limit: int = 3) -> list[tuple[str, str]]:
     return docs[:limit]
 
 
+def _excerpt_text(
+    snippet: str,
+    *,
+    max_lines: int = 5,
+    max_chars: int = 360,
+) -> str:
+    """Build a compact excerpt to simplify the assistant output."""
+
+    lines = [line.rstrip() for line in snippet.strip().splitlines() if line.strip()]
+    if not lines:
+        return ""
+
+    selected: list[str] = []
+    for line in lines:
+        selected.append(line)
+        if len(selected) >= max_lines:
+            break
+
+    excerpt = "\n".join(selected)
+    if len(excerpt) > max_chars:
+        excerpt = excerpt[:max_chars].rstrip() + "…"
+    return excerpt
+
+
+def _print_autocomplete_instructions(command_name: str) -> None:
+    """Render autocomplete hints for the recommended command."""
+
+    tokens = command_name.split()
+    if not tokens:
+        return
+
+    print("\nAutocompletado sugerido (PowerShell):")
+    invocation = f"python3 arkit8s.py {command_name}".strip()
+    print(f"  PS> {invocation}")
+
+    for token in tokens:
+        prefix = token[: max(3, len(token) // 2 or 1)]
+        print(
+            f"    - Escribe '{prefix}' y presiona Tab para completar '{token}'."
+        )
+
+
 def _handle_assistant_question(question: str, *, reason: str) -> int:
     print("🤖  Asistente arkit8s")
     print(f"Motivo de la asistencia: {reason}.")
@@ -2412,19 +2454,23 @@ def _handle_assistant_question(question: str, *, reason: str) -> int:
             print(f"- {name}: {description}")
         return 1
 
-    print()
+    print("\nRespuesta:")
     print(textwrap.fill(reply.answer, width=100))
 
     if reply.supporting_chunks:
-        print("\nFragmentos relacionados:")
+        print("\nDocumentación relacionada:")
         for source, snippet in reply.supporting_chunks:
+            excerpt = _excerpt_text(snippet)
+            if not excerpt:
+                continue
             print(f"- {source}")
-            print(textwrap.indent(textwrap.fill(snippet, width=100), "  "))
+            print(textwrap.indent(textwrap.fill(excerpt, width=100), "  "))
 
     if reply.command_suggestions:
         print("\nComandos sugeridos:")
         for name, score in reply.command_suggestions:
-            print(f"- {name}: {score}")
+            print(f"- {name}: {score:.2f}")
+        _print_autocomplete_instructions(reply.command_suggestions[0][0])
 
     return 0
 
