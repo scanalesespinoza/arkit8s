@@ -9,12 +9,19 @@ import shutil
 import ssl
 import subprocess
 import sys
+import textwrap
 import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
+
+from utilities.assistant_model import (
+    AssistantModelNotFoundError,
+    generate_assistant_reply,
+    train_assistant_knowledge_base,
+)
 
 HELP_START_MARKER = "<!-- BEGIN ARKIT8S HELP -->"
 HELP_END_MARKER = "<!-- END ARKIT8S HELP -->"
@@ -60,6 +67,17 @@ class CommandGroup:
     summary: str
     description: str | None
     commands: tuple[CommandDefinition, ...]
+
+
+class AssistantQueryError(Exception):
+    """Raised when an invocation debe redirigirse al asistente inteligente."""
+
+
+class AssistantAwareArgumentParser(argparse.ArgumentParser):
+    """Custom parser que redirige errores al asistente."""
+
+    def error(self, message: str) -> None:  # type: ignore[override]
+        raise AssistantQueryError(message)
 
 
 @dataclass(frozen=True)
@@ -215,6 +233,44 @@ def _configure_simulators_cleanup(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def _configure_assistant_train(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--epochs",
+        type=int,
+        default=6,
+        help="Cantidad de épocas para entrenar la red neuronal (por defecto: 6).",
+    )
+    parser.add_argument(
+        "--hidden-size",
+        type=int,
+        default=128,
+        help="Dimensión del espacio latente utilizado por el asistente (por defecto: 128).",
+    )
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=16,
+        help="Tamaño del batch para el entrenamiento (por defecto: 16).",
+    )
+    parser.add_argument(
+        "--max-chars",
+        type=int,
+        default=1200,
+        help="Longitud máxima por fragmento de texto al generar el dataset (por defecto: 1200).",
+    )
+    parser.add_argument(
+        "--min-frequency",
+        type=int,
+        default=2,
+        help="Frecuencia mínima de un término para formar parte del vocabulario (por defecto: 2).",
+    )
+    parser.add_argument(
+        "--max-chunks",
+        type=int,
+        help="Límite opcional de fragmentos a indexar para acelerar entrenamientos de prueba.",
+    )
+
+
 def _configure_components_create(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("name", help="Nombre del componente a crear.")
     parser.add_argument("--type", required=True, help="Tipo según component_inventory.yaml.")
@@ -238,6 +294,26 @@ def _configure_components_create(parser: argparse.ArgumentParser) -> None:
         default="component-instances",
         help="Rama local donde se almacenarán los manifiestos creados.",
     )
+
+def train_assistant_command(args: argparse.Namespace) -> int:
+    summary = train_assistant_knowledge_base(
+        REPO_ROOT,
+        epochs=args.epochs,
+        hidden_size=args.hidden_size,
+        batch_size=args.batch_size,
+        max_chars=args.max_chars,
+        min_frequency=args.min_frequency,
+        max_chunks=args.max_chunks,
+    )
+    print("Asistente entrenado correctamente.")
+    print(
+        "Fragmentos indexados: {chunks} | Vocabulario: {vocab_size} | Épocas: {epochs}".format(
+            chunks=summary["chunks"], vocab_size=summary["vocab_size"], epochs=summary["epochs"]
+        )
+    )
+    print(f"Archivo generado en: {summary['artifacts']}")
+    return 0
+
 
 def _load_usage_text() -> str:
     """Return the README help block so CLI help matches documentation."""
@@ -2170,11 +2246,96 @@ COMMAND_GROUPS: tuple[CommandGroup, ...] = (
             ),
         ),
     ),
+    CommandGroup(
+        name="assistant",
+        summary="Gestiona el asistente inteligente basado en deep learning.",
+        description=(
+            "Herramientas para entrenar el modelo neuronal que responde preguntas sobre el repositorio y recomienda"
+            " comandos cuando el CLI se utiliza incorrectamente."
+        ),
+        commands=(
+            CommandDefinition(
+                name="train",
+                handler=train_assistant_command,
+                summary="Genera el modelo del asistente procesando el repositorio actual.",
+                description=(
+                    "Construye un modelo de aprendizaje profundo que indexa el contenido del repositorio para responder"
+                    " preguntas y sugerir comandos alternativos."
+                ),
+                configure=_configure_assistant_train,
+            ),
+        ),
+    ),
 )
 
 
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
+def _command_documents() -> list[tuple[str, str]]:
+    docs: list[tuple[str, str]] = []
+    for group in COMMAND_GROUPS:
+        for command in group.commands:
+            name = f"{group.name} {command.name}"
+            description = f"{command.summary}. {(command.description or '').strip()}".strip()
+            docs.append((name, description))
+    docs.append(
+        (
+            "train-assistant",
+            "Alias del comando assistant train que genera el modelo del asistente de arkit8s.",
+        )
+    )
+    return docs
+
+
+def _build_assistant_command_corpus() -> list[tuple[str, str]]:
+    return _command_documents()
+
+
+def _default_command_suggestions(limit: int = 3) -> list[tuple[str, str]]:
+    docs = _command_documents()
+    return docs[:limit]
+
+
+def _handle_assistant_question(question: str, *, reason: str) -> int:
+    print("🤖  Asistente arkit8s")
+    print(f"Motivo de la asistencia: {reason}.")
+    try:
+        reply = generate_assistant_reply(question, _build_assistant_command_corpus())
+    except AssistantModelNotFoundError:
+        print(
+            "No se encontró un modelo entrenado. Ejecuta './arkit8s.py train-assistant' para generar las respuestas."
+        )
+        return 1
+    except ValueError as exc:
+        print(f"No se pudo interpretar la pregunta: {exc}")
+        print(
+            "Intenta reformularla con palabras clave presentes en el repositorio o vuelve a entrenar el asistente"
+            " con más fragmentos."
+        )
+        print("\nComandos frecuentes:")
+        for name, description in _default_command_suggestions():
+            print(f"- {name}: {description}")
+        return 1
+
+    print()
+    print(textwrap.fill(reply.answer, width=100))
+
+    if reply.supporting_chunks:
+        print("\nFragmentos relacionados:")
+        for source, snippet in reply.supporting_chunks:
+            print(f"- {source}")
+            print(textwrap.indent(textwrap.fill(snippet, width=100), "  "))
+
+    if reply.command_suggestions:
+        print("\nComandos sugeridos:")
+        for name, score in reply.command_suggestions:
+            print(f"- {name}: {score}")
+
+    return 0
+
+
+def build_parser(
+    parser_class: type[argparse.ArgumentParser] = argparse.ArgumentParser,
+) -> argparse.ArgumentParser:
+    parser = parser_class(
         description=USAGE_TEXT,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -2202,9 +2363,35 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main() -> int:
-    parser = build_parser()
-    args = parser.parse_args()
+def main(argv: list[str] | None = None) -> int:
+    args_list = list(sys.argv[1:] if argv is None else argv)
+
+    if not args_list:
+        parser = build_parser()
+        parser.print_help()
+        return 1
+
+    if args_list[0] == "train-assistant":
+        args_list = ["assistant", "train", *args_list[1:]]
+
+    if len(args_list) == 1 and not args_list[0].startswith("-"):
+        token = args_list[0]
+        known_groups = {group.name for group in COMMAND_GROUPS}
+        if token in known_groups:
+            reason = "comando incompleto"
+        elif " " in token or token.endswith("?"):
+            reason = "consulta directa"
+        else:
+            reason = "comando no reconocido"
+        return _handle_assistant_question(token, reason=reason)
+
+    parser = build_parser(AssistantAwareArgumentParser)
+    try:
+        args = parser.parse_args(args_list)
+    except AssistantQueryError:
+        question = " ".join(args_list)
+        return _handle_assistant_question(question, reason="comando no reconocido")
+
     if not hasattr(args, "func"):
         parser.print_help()
         return 1
