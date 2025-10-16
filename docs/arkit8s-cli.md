@@ -89,6 +89,20 @@ Sincroniza el CLI con la consola web Architects Visualization.
 ./arkit8s.py cluster watch --env sandbox --minutes 5
 ```
 
+### ¿Cómo instalo la arquitectura por defecto?
+
+La arquitectura por defecto corresponde al entorno `sandbox`. Para instalarla desde cero:
+
+1. Asegúrate de haber ejecutado `oc login` contra el clúster de destino y de tener permisos de
+   administrador del proyecto.
+2. Desde la raíz del repositorio, ejecuta `python3 arkit8s.py cluster deploy --env sandbox`. El
+   comando aplica los manifiestos base y el overlay `sandbox` ubicados en `environments/`.
+3. Cuando el despliegue termine, valida el estado con `python3 arkit8s.py cluster validate --env
+   sandbox` o monitorea los componentes con `python3 arkit8s.py cluster watch --env sandbox`.
+
+Si necesitas reinstalarla, primero puedes limpiar recursos con `python3 arkit8s.py cluster reset
+--env sandbox` y volver a ejecutar el despliegue.
+
 ### Generación de simuladores deterministas
 ```
 ./arkit8s.py simulators generate --behavior notready --seed 42
