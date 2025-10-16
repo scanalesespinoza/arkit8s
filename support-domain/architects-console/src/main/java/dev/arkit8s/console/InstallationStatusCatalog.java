@@ -53,11 +53,18 @@ public class InstallationStatusCatalog {
             return;
         }
         try {
-            var fileTime = Files.exists(statusPath)
+            var now = Instant.now();
+            var nextRefresh = lastLoaded.toInstant().plus(refreshInterval);
+            if (now.isBefore(nextRefresh)) {
+                return;
+            }
+
+            boolean exists = Files.exists(statusPath);
+            var fileTime = exists
                     ? Files.getLastModifiedTime(statusPath)
                     : FileTime.from(Instant.EPOCH);
-            var threshold = lastLoaded.toInstant().plus(refreshInterval);
-            if (fileTime.toInstant().isAfter(threshold)) {
+
+            if (!exists || fileTime.toInstant().isAfter(lastLoaded.toInstant())) {
                 refresh();
             }
         } catch (IOException e) {
