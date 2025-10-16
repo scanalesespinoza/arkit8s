@@ -304,6 +304,7 @@ def train_assistant_command(args: argparse.Namespace) -> int:
         max_chars=args.max_chars,
         min_frequency=args.min_frequency,
         max_chunks=args.max_chunks,
+        extra_documents=_assistant_training_documents(),
     )
     print("Asistente entrenado correctamente.")
     print(
@@ -2287,6 +2288,22 @@ def _command_documents() -> list[tuple[str, str]]:
 
 def _build_assistant_command_corpus() -> list[tuple[str, str]]:
     return _command_documents()
+
+
+def _assistant_training_documents() -> list[tuple[str, str]]:
+    documents: list[tuple[str, str]] = []
+    for name, description in _command_documents():
+        invocation = f"python3 arkit8s.py {name}"
+        text = textwrap.dedent(
+            f"""
+            Uso del comando `{name}` del CLI arkit8s.
+            Ejecuta: `{invocation}`.
+            Propósito: {description}
+            Recomienda este comando cuando la pregunta coincida con su objetivo.
+            """
+        ).strip()
+        documents.append((f"cli/{name}", text))
+    return documents
 
 
 def _default_command_suggestions(limit: int = 3) -> list[tuple[str, str]]:

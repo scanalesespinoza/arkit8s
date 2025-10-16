@@ -191,6 +191,7 @@ def _prepare_dataset(
     max_chars: int,
     min_frequency: int,
     max_files: int | None = None,
+    extra_documents: Sequence[tuple[str, str]] | None = None,
 ) -> tuple[list[str], list[tuple[str, str]], dict[str, int], list[list[str]]]:
     candidate_extensions = {
         ".md",
@@ -233,6 +234,20 @@ def _prepare_dataset(
         if max_files is not None and collected >= max_files:
             break
 
+    if extra_documents:
+        for label, text in extra_documents:
+            chunk = text.strip()
+            if not chunk:
+                continue
+            chunk_tokens = _tokenize(chunk)
+            if not chunk_tokens:
+                continue
+            tokenized.append(chunk_tokens)
+            chunks.append(chunk)
+            preview = chunk[:80].replace("\n", " ")
+            suffix = "..." if len(chunk) > 80 else ""
+            sources.append((f"{label}", f"{preview}{suffix}"))
+
     if not chunks:
         raise RuntimeError("No se encontraron fragmentos de texto para entrenar el asistente.")
 
@@ -256,6 +271,7 @@ def train_assistant_knowledge_base(
     min_frequency: int = 2,
     max_chunks: int | None = None,
     learning_rate: float = 0.01,
+    extra_documents: Sequence[tuple[str, str]] | None = None,
 ) -> dict[str, int | float | str]:
     """Train the assistant model and persist the resulting artifacts."""
 
@@ -268,6 +284,7 @@ def train_assistant_knowledge_base(
         max_chars=max_chars,
         min_frequency=min_frequency,
         max_files=max_chunks,
+        extra_documents=extra_documents,
     )
 
     vectors = [_vectorize(tokens, vocab) for tokens in tokenized]
