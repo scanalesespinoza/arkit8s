@@ -1,0 +1,22 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: architects-visualization
+  namespace: support-domain
+  labels:
+    app.kubernetes.io/name: architects-visualization
+    app.kubernetes.io/component: control-plane
+    app.kubernetes.io/part-of: arkit8s
+  annotations:
+    architecture.domain: support
+    architecture.function: architecture-visualization
+    architecture.part_of: arkit8s
+spec:
+  host: architects-visualization-support-domain.apps-crc.testing
+  to:
+    kind: Service
+    name: architects-visualization
+    weight: 100
+  port:
+    targetPort: http
+  wildcardPolicy: None

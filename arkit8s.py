@@ -25,6 +25,13 @@ DEFAULT_ENV = "sandbox"
 DEFAULT_SCENARIO = "default"
 DEFAULT_SIMULATOR_COUNT = 10
 
+COMMAND_OUTPUT_FILE = REPO_ROOT / "tmp" / "command-output.out"
+EXPECTED_PRODUCT_ROUTES: dict[tuple[str, str], str] = {
+    ("shared-components", "gitlab-ce"): "GitLab CE",
+    ("shared-components", "keycloak"): "Keycloak",
+    ("support-domain", "architects-visualization"): "Architects Visualization",
+}
+
 CLI_COMMANDS_HELP: dict[str, str] = {
     "install": "Aplica los manifiestos base y del entorno seleccionado usando oc apply",
     "uninstall": "Elimina todos los manifiestos de arquitectura sin fallar si ya no existen",
@@ -143,7 +150,7 @@ def ensure_branch(name: str) -> None:
 
 
 def install(args: argparse.Namespace) -> int:
-    env = args.env
+    env = getattr(args, "env", DEFAULT_ENV)
     try:
         run(["oc", "apply", "-k", str(ARCH_DIR / "bootstrap")])
         run(["oc", "apply", "-k", str(ENV_DIR / env)])
@@ -153,7 +160,22 @@ def install(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 1
-    return validate_cluster(args)
+    status = validate_cluster(args)
+    route_status, missing_routes = _record_route_summary(env)
+    if missing_routes:
+        print(
+            "⚠️  Productos sin Route configurada: " + ", ".join(sorted(missing_routes)) + ".",
+            file=sys.stderr,
+        )
+    elif route_status != 0:
+        print(
+            "⚠️  No fue posible registrar las Routes del clúster; revisa el archivo de salida.",
+            file=sys.stderr,
+        )
+    print(f"📝 Consulta {COMMAND_OUTPUT_FILE} para los detalles de las URLs expuestas.")
+    if status == 0 and route_status != 0:
+        status = route_status
+    return status
 
 
 def uninstall(_args: argparse.Namespace) -> int:
@@ -573,6 +595,93 @@ def _collect_serviceaccounts() -> set[tuple[str, str]]:
             if isinstance(name, str) and name and isinstance(namespace, str) and namespace:
                 serviceaccounts.add((namespace, name))
     return serviceaccounts
+
+
+def _record_route_summary(env: str) -> tuple[int, list[str]]:
+    """Store the list of available Routes and highlight missing products."""
+
+    output_path = COMMAND_OUTPUT_FILE
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+    lines = [
+        f"# Routes disponibles para el entorno {env}",
+        f"# Generado: {timestamp}",
+        "",
+    ]
+
+    try:
+        proc = subprocess.run(
+            ["oc", "get", "route", "-A", "-o", "json"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+    except FileNotFoundError:
+        lines.append("⚠️  El comando 'oc' no está disponible; no se pueden listar Routes.")
+        output_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        return 1, []
+    except subprocess.CalledProcessError as err:
+        lines.append("⚠️  Error al ejecutar 'oc get route -A -o json'.")
+        stderr = (err.stderr or "").strip()
+        if stderr:
+            lines.append(stderr)
+        output_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        return err.returncode or 1, []
+
+    try:
+        data = json.loads(proc.stdout or "{}")
+    except json.JSONDecodeError:
+        lines.append("⚠️  No fue posible interpretar la salida JSON de 'oc get route'.")
+        output_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        return 1, []
+
+    items = data.get("items", []) if isinstance(data, dict) else []
+    if not items:
+        lines.append("No se encontraron Routes en el clúster.")
+        output_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        return 1, list(EXPECTED_PRODUCT_ROUTES.values())
+
+    header = "\t".join(["NAMESPACE", "NAME", "HOST", "SERVICE"])
+    lines.append(header)
+    found: set[tuple[str, str]] = set()
+    entries: list[tuple[str, str, str, str]] = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        meta = item.get("metadata", {})
+        spec = item.get("spec", {})
+        namespace = meta.get("namespace", "") if isinstance(meta, dict) else ""
+        name = meta.get("name", "") if isinstance(meta, dict) else ""
+        host = spec.get("host", "") if isinstance(spec, dict) else ""
+        service = ""
+        if isinstance(spec, dict):
+            to = spec.get("to", {})
+            if isinstance(to, dict):
+                service = to.get("name", "") or ""
+        if namespace and name:
+            found.add((namespace, name))
+        entries.append((namespace, name, host or "-", service or "-"))
+
+    for namespace, name, host, service in sorted(entries):
+        lines.append("\t".join([namespace or "-", name or "-", host, service]))
+
+    missing = [
+        product
+        for key, product in EXPECTED_PRODUCT_ROUTES.items()
+        if key not in found
+    ]
+
+    lines.append("")
+    if missing:
+        lines.append("⚠️  Productos sin Route detectada: " + ", ".join(sorted(missing)) + ".")
+    else:
+        lines.append("✅ Todos los productos esperados cuentan con Route.")
+
+    lines.append("")
+    lines.append("Comando ejecutado: oc get route -A -o json")
+
+    output_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return (0 if not missing else 1), missing
 
 
 def validate_cluster(args: argparse.Namespace, quiet: bool = False) -> int:
