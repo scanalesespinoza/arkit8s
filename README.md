@@ -95,6 +95,7 @@ El script `arkit8s.py` centraliza las tareas operativas de la plataforma. Todos 
 - `create <nombre> --type <tipo> --domain <business|support|shared> [opciones]` – crea una instancia de componente a partir del inventario (`component_inventory.yaml`), generando Deployment/Service/Kustomization y actualizando el `kustomization.yaml` del dominio.
 
 #### Grupo `console`
+- `deploy [--sync-commands]` – aplica la interfaz web del asistente en `support-domain`, generando el ConfigMap de comandos si se solicita.
 - `sync` – sincroniza la metadata del CLI con la consola web de Architects Visualization generando el `ConfigMap` consumido por Quarkus/Qute.
 
 ### Asistente inteligente del CLI

@@ -169,6 +169,17 @@ def _configure_cluster_validate(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def _configure_console_deploy(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--sync-commands",
+        action="store_true",
+        help=(
+            "Genera el ConfigMap de comandos antes de aplicar la kustomization"
+            " de la interfaz web."
+        ),
+    )
+
+
 def _configure_scenarios_deploy(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--simulators",
@@ -635,6 +646,32 @@ def sync_web_console(_args: argparse.Namespace) -> int:
         encoding="utf-8",
     )
     print(f"📦 ConfigMap de comandos actualizada en {WEB_CONSOLE_COMMANDS_CONFIGMAP}")
+    return 0
+
+
+def deploy_web_console(args: argparse.Namespace) -> int:
+    """Apply the Architects Visualization manifests to the cluster."""
+
+    if args.sync_commands or not WEB_CONSOLE_COMMANDS_CONFIGMAP.exists():
+        status = sync_web_console(argparse.Namespace())
+        if status != 0:
+            return status
+
+    try:
+        run(["oc", "apply", "-k", str(WEB_CONSOLE_DIR)])
+    except FileNotFoundError:
+        print("error: comando 'oc' no encontrado", file=sys.stderr)
+        return 1
+    except subprocess.CalledProcessError as err:  # pragma: no cover - CLI flow
+        stderr = (err.stderr or "").strip()
+        if stderr:
+            sys.stderr.write(stderr + "\n")
+        return err.returncode or 1
+
+    print(
+        "🚀 Interfaz web del asistente desplegada:"
+        f" {WEB_CONSOLE_DIR.relative_to(REPO_ROOT)}"
+    )
     return 0
 
 
@@ -2319,6 +2356,17 @@ COMMAND_GROUPS: tuple[CommandGroup, ...] = (
         summary="Sincroniza la metadata del CLI con la consola web Architects Visualization.",
         description="Genera el ConfigMap consumido por la aplicación Quarkus para mostrar los comandos disponibles.",
         commands=(
+            CommandDefinition(
+                name="deploy",
+                handler=deploy_web_console,
+                summary="Aplica la interfaz web del asistente en support-domain.",
+                description=(
+                    "Ejecuta oc apply -k architecture/support-domain/architects-visualization para"
+                    " desplegar la consola Architects Visualization, opcionalmente regenerando"
+                    " el ConfigMap de comandos."
+                ),
+                configure=_configure_console_deploy,
+            ),
             CommandDefinition(
                 name="sync",
                 handler=sync_web_console,

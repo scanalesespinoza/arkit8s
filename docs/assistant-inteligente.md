@@ -49,5 +49,21 @@ proyecto.
   resumen reflejen claramente el problema que resuelve; el entrenamiento reutiliza esos textos
   para alimentar su vocabulario.
 
+## Desplegar la interfaz web del asistente
+
+La interfaz Architects Visualization vive en `support-domain/architects-console` y se despliega en
+OpenShift mediante la kustomization declarada en
+`architecture/support-domain/architects-visualization`. Tras generar o actualizar el modelo del
+asistente conviene publicar los comandos disponibles usando:
+
+```
+python3 arkit8s.py console deploy --sync-commands
+```
+
+El indicador `--sync-commands` fuerza la regeneración del ConfigMap
+`console-commands-configmap.yaml` antes de aplicar los manifiestos, garantizando que la consola web
+muestre los comandos actualizados. Si ya sincronizaste la metadata con `console sync`, puedes omitir
+el indicador y ejecutar `console deploy` directamente.
+
 Siguiendo este flujo, el asistente responderá de forma consistente y alineada a las necesidades
 del CLI sin incurrir en los costos de modelos de mayor tamaño.
