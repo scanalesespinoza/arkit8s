@@ -2516,9 +2516,43 @@ def _handle_assistant_question(question: str, *, reason: str) -> int:
 
     if reply.command_suggestions:
         print("\nComandos sugeridos:")
-        for name, score in reply.command_suggestions:
-            print(f"- {name}: {score:.2f}")
-        _print_autocomplete_instructions(reply.command_suggestions[0][0])
+
+        def _coerce_score(value: object) -> float | None:
+            if isinstance(value, (int, float)):
+                return float(value)
+            try:
+                return float(value)  # type: ignore[arg-type]
+            except (TypeError, ValueError):
+                return None
+
+        def _format_score(value: object) -> str:
+            coerced = _coerce_score(value)
+            if coerced is not None:
+                return f"{coerced:.2f}"
+            return str(value)
+
+        scored_suggestions: list[tuple[str, object, float | None]] = [
+            (name, score, _coerce_score(score)) for name, score in reply.command_suggestions
+        ]
+        scored_suggestions.sort(
+            key=lambda item: (
+                item[2] is not None,
+                item[2] if item[2] is not None else float("-inf"),
+            ),
+            reverse=True,
+        )
+
+        top_suggestions = scored_suggestions[:3]
+        for name, score, _ in top_suggestions:
+            print(f"- {name}: {_format_score(score)}")
+
+        if len(scored_suggestions) > len(top_suggestions):
+            print(
+                "\n¿Deseas que muestre más recomendaciones? Pídelo y con gusto las mostraré."
+            )
+
+        if top_suggestions:
+            _print_autocomplete_instructions(top_suggestions[0][0])
 
     return 0
 
