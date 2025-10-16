@@ -5,10 +5,13 @@ from __future__ import annotations
 import argparse
 import json
 import random
-import subprocess
 import shutil
+import ssl
+import subprocess
 import sys
 import time
+import urllib.error
+import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
@@ -57,6 +60,17 @@ class CommandGroup:
     summary: str
     description: str | None
     commands: tuple[CommandDefinition, ...]
+
+
+@dataclass(frozen=True)
+class DefaultComponent:
+    """Representa un componente principal de la arquitectura por defecto."""
+
+    name: str
+    namespace: str
+    kind: str
+    route_name: str | None = None
+    expected_route_host: str | None = None
 
 
 BUSINESS_SIM_TARGETS: dict[str, dict[str, str | Path]] = {
@@ -656,6 +670,320 @@ def _record_route_summary(env: str) -> tuple[int, list[str]]:
 
     output_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return (0 if not missing else 1), missing
+
+
+def _load_default_components() -> list[DefaultComponent]:
+    """Descubre los componentes base y sus rutas asociadas dentro de architecture/."""
+
+    yaml = _ensure_yaml_module()
+    components: dict[tuple[str, str], dict[str, str]] = {}
+    route_targets: dict[tuple[str, str], dict[str, str | None]] = {}
+
+    for path in sorted(ARCH_DIR.rglob("*.yaml")):
+        if path.name == "kustomization.yaml":
+            continue
+        try:
+            with path.open("r", encoding="utf-8") as fh:
+                docs = list(yaml.safe_load_all(fh))
+        except FileNotFoundError:
+            continue
+        except yaml.YAMLError:
+            continue
+
+        for doc in docs:
+            if not isinstance(doc, dict):
+                continue
+            kind = doc.get("kind")
+            metadata = doc.get("metadata")
+            if not isinstance(metadata, dict):
+                continue
+            name = metadata.get("name")
+            namespace = metadata.get("namespace")
+            if not isinstance(name, str) or not name:
+                continue
+            if not isinstance(namespace, str) or not namespace:
+                continue
+
+            if kind in {"Deployment", "StatefulSet"}:
+                labels = metadata.get("labels")
+                if isinstance(labels, dict):
+                    label_value = labels.get("arkit8s.simulator")
+                    if isinstance(label_value, str) and label_value.lower() == "true":
+                        continue
+                components[(namespace, name)] = {
+                    "name": name,
+                    "namespace": namespace,
+                    "kind": kind or "Deployment",
+                }
+            elif kind == "Route":
+                spec = doc.get("spec")
+                if not isinstance(spec, dict):
+                    continue
+                to = spec.get("to")
+                if not isinstance(to, dict):
+                    continue
+                target = to.get("name")
+                host = spec.get("host")
+                if (
+                    isinstance(target, str)
+                    and target
+                    and isinstance(host, str)
+                    and host
+                ):
+                    route_targets[(namespace, target)] = {
+                        "route_name": name,
+                        "expected_host": host,
+                    }
+
+    result: list[DefaultComponent] = []
+    for key, info in sorted(components.items()):
+        route_info = route_targets.get(key, {})
+        result.append(
+            DefaultComponent(
+                name=info["name"],
+                namespace=info["namespace"],
+                kind=info["kind"],
+                route_name=route_info.get("route_name"),
+                expected_route_host=route_info.get("expected_host"),
+            )
+        )
+    return result
+
+
+def _fetch_cluster_routes() -> tuple[dict[tuple[str, str], str], str | None]:
+    """Recupera las Routes disponibles en el clúster indexadas por namespace/nombre."""
+
+    try:
+        proc = subprocess.run(
+            ["oc", "get", "route", "-A", "-o", "json"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+    except FileNotFoundError:
+        return {}, "El comando 'oc' no está disponible en el PATH."
+    except subprocess.CalledProcessError as err:
+        detail = (err.stderr or err.stdout or str(err)).strip()
+        return {}, detail or "Error al ejecutar 'oc get route -A -o json'."
+
+    try:
+        data = json.loads(proc.stdout or "{}")
+    except json.JSONDecodeError:
+        return {}, "No se pudo interpretar la salida JSON de 'oc get route'."
+
+    mapping: dict[tuple[str, str], str] = {}
+    items = data.get("items", []) if isinstance(data, dict) else []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        meta = item.get("metadata", {})
+        spec = item.get("spec", {})
+        namespace = meta.get("namespace") if isinstance(meta, dict) else None
+        name = meta.get("name") if isinstance(meta, dict) else None
+        host = spec.get("host") if isinstance(spec, dict) else None
+        if (
+            isinstance(namespace, str)
+            and namespace
+            and isinstance(name, str)
+            and name
+            and isinstance(host, str)
+            and host
+        ):
+            mapping[(namespace, name)] = host
+    return mapping, None
+
+
+def _check_workload_status(component: DefaultComponent) -> tuple[bool, str]:
+    """Valida el estado de un Deployment/StatefulSet reportando réplicas listas."""
+
+    resource_map = {
+        "Deployment": "deployment",
+        "StatefulSet": "statefulset",
+    }
+    resource = resource_map.get(component.kind, component.kind.lower())
+    try:
+        proc = subprocess.run(
+            [
+                "oc",
+                "get",
+                resource,
+                component.name,
+                "-n",
+                component.namespace,
+                "-o",
+                "json",
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+    except FileNotFoundError:
+        return False, "El comando 'oc' no está disponible en el PATH."
+    except subprocess.CalledProcessError as err:
+        detail = (err.stderr or err.stdout or str(err)).strip()
+        return False, detail or f"'oc get {resource} {component.name}' no tuvo éxito."
+
+    try:
+        data = json.loads(proc.stdout or "{}")
+    except json.JSONDecodeError:
+        return False, "No se pudo interpretar la salida JSON del recurso."
+
+    spec = data.get("spec", {}) if isinstance(data, dict) else {}
+    status = data.get("status", {}) if isinstance(data, dict) else {}
+
+    def _as_int(value: object, default: int) -> int:
+        try:
+            return int(value)  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            return default
+
+    desired = _as_int(spec.get("replicas"), 1)
+    ready = _as_int(status.get("readyReplicas"), 0)
+    available = _as_int(status.get("availableReplicas"), ready)
+
+    if component.kind == "StatefulSet":
+        effective_ready = ready
+    else:
+        effective_ready = max(ready, available)
+
+    message = f"réplicas listas {effective_ready}/{desired}"
+    is_ready = desired == 0 or effective_ready >= desired
+
+    if not is_ready:
+        conditions = status.get("conditions") if isinstance(status, dict) else None
+        details: list[str] = []
+        if isinstance(conditions, list):
+            for cond in conditions:
+                if not isinstance(cond, dict):
+                    continue
+                cond_type = cond.get("type")
+                cond_status = cond.get("status")
+                if cond_type in {"Available", "Ready", "Progressing", "Degraded"}:
+                    reason = cond.get("reason")
+                    cond_message = cond.get("message")
+                    parts = [p for p in (cond_type, reason, cond_message) if isinstance(p, str) and p]
+                    if parts:
+                        details.append(" - ".join(parts))
+        if details:
+            message += " | " + "; ".join(details)
+
+    return is_ready, message
+
+
+def _probe_route(host: str, timeout: float = 5.0) -> tuple[bool, str]:
+    """Realiza peticiones HTTP/HTTPS a la ruta indicada y devuelve el resultado."""
+
+    context = ssl._create_unverified_context()
+    attempts: list[str] = []
+
+    for scheme in ("https", "http"):
+        url = f"{scheme}://{host}"
+        try:
+            request = urllib.request.Request(url, method="GET")
+            with urllib.request.urlopen(request, timeout=timeout, context=context) as response:
+                status_code = getattr(response, "status", None)
+                if status_code is None:
+                    status_code = response.getcode()
+                if 200 <= status_code < 400:
+                    return True, f"{url} → HTTP {status_code}"
+                attempts.append(f"{url}: HTTP {status_code}")
+        except urllib.error.HTTPError as err:
+            attempts.append(f"{url}: HTTP {err.code}")
+        except urllib.error.URLError as err:
+            reason = getattr(err, "reason", None)
+            attempts.append(f"{url}: {reason if reason else err}")
+        except Exception as exc:  # pragma: no cover - fallback defensivo
+            attempts.append(f"{url}: {exc}")
+
+    return False, "; ".join(attempts) if attempts else "No se pudo contactar la ruta."
+
+
+def validate_default_architecture(_args: argparse.Namespace) -> int:
+    """Valida periódicamente que la arquitectura base esté disponible funcionalmente."""
+
+    components = _load_default_components()
+    if not components:
+        print(
+            "No se encontraron componentes base en architecture/.",
+            file=sys.stderr,
+        )
+        return 1
+
+    interval_seconds = 10
+    per_component_estimate = 20
+    max_wait = max(interval_seconds, per_component_estimate * len(components), 120)
+    deadline = time.time() + max_wait
+
+    print(
+        "🔁 Iniciando validación funcional de la arquitectura por defecto "
+        f"({len(components)} componentes detectados)."
+    )
+    print(
+        "⏳ Tiempo máximo estimado: "
+        f"{max_wait} segundos (≈{per_component_estimate}s por componente)."
+    )
+
+    attempt = 0
+    while True:
+        attempt += 1
+        route_map, route_error = _fetch_cluster_routes()
+        timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+        print(f"\n[{timestamp}] Iteración {attempt}")
+
+        all_ok = True
+        for component in components:
+            workload_ok, workload_msg = _check_workload_status(component)
+            line = (
+                f" - {component.namespace}/{component.name} "
+                f"({component.kind}): "
+            )
+            if workload_ok:
+                line += f"✅ {workload_msg}"
+            else:
+                line += f"❌ {workload_msg}"
+                all_ok = False
+
+            if component.route_name:
+                if route_error:
+                    line += f" | URL ❌ {route_error}"
+                    all_ok = False
+                else:
+                    host = route_map.get((component.namespace, component.route_name))
+                    if not host:
+                        expected = component.expected_route_host or "desconocido"
+                        line += (
+                            " | URL ❌ Route no encontrada en el clúster "
+                            f"(esperada {component.route_name} → {expected})."
+                        )
+                        all_ok = False
+                    else:
+                        route_ok, route_msg = _probe_route(host)
+                        if route_ok:
+                            line += f" | URL ✅ {route_msg}"
+                        else:
+                            line += f" | URL ❌ {route_msg}"
+                            all_ok = False
+            else:
+                line += " | Sin URL expuesta"
+
+            print(line)
+
+        if all_ok:
+            print(
+                "\n🎉 Todos los componentes respondieron correctamente. "
+                "La arquitectura por defecto está operativa."
+            )
+            return 0
+
+        if time.time() >= deadline:
+            print(
+                "\n❌ No se ha logrado validar en el tiempo máximo estimado. "
+                "Revisa la instalación y vuelve a ejecutar el comando de validación.",
+                file=sys.stderr,
+            )
+            return 1
+
+        time.sleep(interval_seconds)
 
 
 def validate_cluster(args: argparse.Namespace, quiet: bool = False) -> int:
@@ -1699,6 +2027,15 @@ COMMAND_GROUPS: tuple[CommandGroup, ...] = (
                 summary="Revisa namespaces, deployments, pods y diferencias declarativas.",
                 description="Valida que el estado del clúster coincida con los manifiestos del entorno seleccionado.",
                 configure=_configure_cluster_validate,
+            ),
+            CommandDefinition(
+                name="validate-default",
+                handler=validate_default_architecture,
+                summary="Verifica periódicamente los componentes y Routes de la arquitectura por defecto.",
+                description=(
+                    "Ejecuta comprobaciones de despliegues y peticiones HTTP cada 10 segundos hasta que todos los "
+                    "componentes estén listos o se alcance el tiempo máximo estimado."
+                ),
             ),
             CommandDefinition(
                 name="watch",
