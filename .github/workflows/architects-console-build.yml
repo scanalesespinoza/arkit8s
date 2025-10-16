@@ -38,6 +38,7 @@ jobs:
       (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
       github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    environment: REGISTRY
     steps:
       - name: Checkout
         uses: actions/checkout@v4
