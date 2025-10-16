@@ -23,3 +23,14 @@ mvn -pl support-domain/architects-console package -Dquarkus.container-image.buil
 ```
 
 El contenedor expone el puerto `8080` y espera encontrar el archivo `commands.json` en `/opt/arkit8s/commands/commands.json`.
+
+## Despliegue en OpenShift
+
+Desde la raíz del repositorio puedes aplicar la interfaz web en el clúster ejecutando:
+
+```bash
+python3 arkit8s.py console deploy --sync-commands
+```
+
+El indicador `--sync-commands` regenera el ConfigMap consumido por la consola antes de aplicar la
+kustomization `architecture/support-domain/architects-visualization`.

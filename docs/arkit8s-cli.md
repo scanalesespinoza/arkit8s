@@ -78,6 +78,7 @@ Sincroniza el CLI con la consola web Architects Visualization.
 
 | Comando | Descripción |
 | --- | --- |
+| `deploy` | Aplica la kustomization de `architecture/support-domain/architects-visualization`, con opción a regenerar el ConfigMap de comandos. |
 | `sync` | Emite el ConfigMap `console-commands-configmap.yaml` con nombre, resumen y uso de cada comando. |
 
 ## Escenarios de uso

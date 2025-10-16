@@ -12,34 +12,44 @@ metadata:
     architecture.function: architecture-visualization
     architecture.part_of: arkit8s
 data:
-  commands.json: "{\n  \"commands\": [\n    {\n      \"name\": \"cluster deploy\"\
-    ,\n      \"summary\": \"Aplica bootstrap y el overlay del entorno seleccionado.\"\
-    ,\n      \"usage\": \"usage: arkit8s.py cluster deploy [-h] [--env ENV]\"\n  \
-    \  },\n    {\n      \"name\": \"cluster remove\",\n      \"summary\": \"Elimina\
-    \ los manifiestos aplicados sin fallar si ya no existen.\",\n      \"usage\":\
-    \ \"usage: arkit8s.py cluster remove [-h]\"\n    },\n    {\n      \"name\": \"\
-    cluster reset\",\n      \"summary\": \"Borra recursos y namespaces del entorno\
-    \ indicado.\",\n      \"usage\": \"usage: arkit8s.py cluster reset [-h] [--env\
-    \ ENV]\"\n    },\n    {\n      \"name\": \"cluster validate\",\n      \"summary\"\
-    : \"Revisa namespaces, deployments, pods y diferencias declarativas.\",\n    \
-    \  \"usage\": \"usage: arkit8s.py cluster validate [-h] [--env ENV]\"\n    },\n\
-    \    {\n      \"name\": \"cluster watch\",\n      \"summary\": \"Ejecuta validaciones\
-    \ peri\xF3dicas para detectar desincronizaciones.\",\n      \"usage\": \"usage:\
-    \ arkit8s.py cluster watch [-h] [--env ENV] [--minutes MINUTES] [--detail {default,detailed,all}]\"\
-    \n    },\n    {\n      \"name\": \"components create\",\n      \"summary\": \"\
-    Genera deployment/service y actualiza el kustomization del dominio.\",\n     \
-    \ \"usage\": \"usage: arkit8s.py components create [-h] --type TYPE --domain {business,support,shared}\
-    \ [--function FUNCTION] [--depends-incluster DEPENDS_INCLUSTER] [--depends-outcluster\
-    \ DEPENDS_OUTCLUSTER] [--branch BRANCH] name\"\n    },\n    {\n      \"name\"\
-    : \"console sync\",\n      \"summary\": \"Actualiza el ConfigMap de comandos consumido\
-    \ por la consola web.\",\n      \"usage\": \"usage: arkit8s.py console sync [-h]\"\
-    \n    },\n    {\n      \"name\": \"metadata audit\",\n      \"summary\": \"Comprueba\
-    \ coherencia entre llamadas declaradas y NetworkPolicies.\",\n      \"usage\"\
-    : \"usage: arkit8s.py metadata audit [-h]\"\n    },\n    {\n      \"name\": \"\
-    metadata lint-yaml\",\n      \"summary\": \"Verifica la validez sint\xE1ctica\
-    \ de los manifiestos YAML.\",\n      \"usage\": \"usage: arkit8s.py metadata lint-yaml\
-    \ [-h]\"\n    },\n    {\n      \"name\": \"metadata network-policies\",\n    \
-    \  \"summary\": \"Genera NetworkPolicies derivadas de las anotaciones architecture.*.\"\
+  commands.json: "{\n  \"commands\": [\n    {\n      \"name\": \"assistant train\"\
+    ,\n      \"summary\": \"Genera el modelo del asistente procesando el repositorio\
+    \ actual.\",\n      \"usage\": \"usage: arkit8s.py assistant train [-h] [--epochs\
+    \ EPOCHS] [--hidden-size HIDDEN_SIZE] [--batch-size BATCH_SIZE] [--max-chars MAX_CHARS]\
+    \ [--min-frequency MIN_FREQUENCY] [--max-chunks MAX_CHUNKS]\"\n    },\n    {\n\
+    \      \"name\": \"cluster deploy\",\n      \"summary\": \"Aplica bootstrap y\
+    \ el overlay del entorno seleccionado.\",\n      \"usage\": \"usage: arkit8s.py\
+    \ cluster deploy [-h] [--env ENV]\"\n    },\n    {\n      \"name\": \"cluster\
+    \ remove\",\n      \"summary\": \"Elimina los manifiestos aplicados sin fallar\
+    \ si ya no existen.\",\n      \"usage\": \"usage: arkit8s.py cluster remove [-h]\"\
+    \n    },\n    {\n      \"name\": \"cluster reset\",\n      \"summary\": \"Borra\
+    \ recursos y namespaces del entorno indicado.\",\n      \"usage\": \"usage: arkit8s.py\
+    \ cluster reset [-h] [--env ENV]\"\n    },\n    {\n      \"name\": \"cluster validate\"\
+    ,\n      \"summary\": \"Revisa namespaces, deployments, pods y diferencias declarativas.\"\
+    ,\n      \"usage\": \"usage: arkit8s.py cluster validate [-h] [--env ENV]\"\n\
+    \    },\n    {\n      \"name\": \"cluster validate-default\",\n      \"summary\"\
+    : \"Verifica peri\xF3dicamente los componentes y Routes de la arquitectura por\
+    \ defecto.\",\n      \"usage\": \"usage: arkit8s.py cluster validate-default [-h]\"\
+    \n    },\n    {\n      \"name\": \"cluster watch\",\n      \"summary\": \"Ejecuta\
+    \ validaciones peri\xF3dicas para detectar desincronizaciones.\",\n      \"usage\"\
+    : \"usage: arkit8s.py cluster watch [-h] [--env ENV] [--minutes MINUTES] [--detail\
+    \ {default,detailed,all}]\"\n    },\n    {\n      \"name\": \"components create\"\
+    ,\n      \"summary\": \"Genera deployment/service y actualiza el kustomization\
+    \ del dominio.\",\n      \"usage\": \"usage: arkit8s.py components create [-h]\
+    \ --type TYPE --domain {business,support,shared} [--function FUNCTION] [--depends-incluster\
+    \ DEPENDS_INCLUSTER] [--depends-outcluster DEPENDS_OUTCLUSTER] [--branch BRANCH]\
+    \ name\"\n    },\n    {\n      \"name\": \"console deploy\",\n      \"summary\"\
+    : \"Aplica la interfaz web del asistente en support-domain.\",\n      \"usage\"\
+    : \"usage: arkit8s.py console deploy [-h] [--sync-commands]\"\n    },\n    {\n\
+    \      \"name\": \"console sync\",\n      \"summary\": \"Actualiza el ConfigMap\
+    \ de comandos consumido por la consola web.\",\n      \"usage\": \"usage: arkit8s.py\
+    \ console sync [-h]\"\n    },\n    {\n      \"name\": \"metadata audit\",\n  \
+    \    \"summary\": \"Comprueba coherencia entre llamadas declaradas y NetworkPolicies.\"\
+    ,\n      \"usage\": \"usage: arkit8s.py metadata audit [-h]\"\n    },\n    {\n\
+    \      \"name\": \"metadata lint-yaml\",\n      \"summary\": \"Verifica la validez\
+    \ sint\xE1ctica de los manifiestos YAML.\",\n      \"usage\": \"usage: arkit8s.py\
+    \ metadata lint-yaml [-h]\"\n    },\n    {\n      \"name\": \"metadata network-policies\"\
+    ,\n      \"summary\": \"Genera NetworkPolicies derivadas de las anotaciones architecture.*.\"\
     ,\n      \"usage\": \"usage: arkit8s.py metadata network-policies [-h]\"\n   \
     \ },\n    {\n      \"name\": \"metadata report\",\n      \"summary\": \"Genera\
     \ un reporte Markdown con la trazabilidad de componentes.\",\n      \"usage\"\
@@ -66,4 +76,4 @@ data:
     \ [--behavior {dynamic,ok,notready,restart}]\"\n    },\n    {\n      \"name\"\
     : \"simulators list\",\n      \"summary\": \"Enumera los simuladores desplegados\
     \ en el cl\xFAster.\",\n      \"usage\": \"usage: arkit8s.py simulators list [-h]\"\
-    \n    }\n  ],\n  \"generated_at\": \"2025-10-16T01:05:51Z\"\n}"
+    \n    }\n  ],\n  \"generated_at\": \"2025-10-16T15:37:50Z\"\n}"
