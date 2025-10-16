@@ -96,6 +96,17 @@ El script `arkit8s.py` centraliza las tareas operativas de la plataforma. Todos 
 #### Grupo `console`
 - `sync` – sincroniza la metadata del CLI con la consola web de Architects Visualization generando el `ConfigMap` consumido por Quarkus/Qute.
 
+### Asistente inteligente del CLI
+
+Cuando ejecutas `python3 arkit8s.py` sin argumentos el CLI intenta responder preguntas libres
+usando un modelo ligero entrenado con el contenido del repositorio. Para añadir nuevos
+conocimientos documenta la respuesta deseada, ejecuta `python3 arkit8s.py assistant train` y
+vuelve a formular la consulta.
+
+Consulta [docs/assistant-inteligente.md](docs/assistant-inteligente.md) para recomendaciones
+detalladas sobre cómo preparar fragmentos, cuándo conviene entrenar y por qué resulta más
+ligero que depender de un modelo opensource genérico.
+
 ### Visualización Architects
 
 1. Ejecuta `python arkit8s.py console sync` tras añadir o modificar comandos del CLI. Este paso genera `architecture/support-domain/architects-visualization/console-commands-configmap.yaml` con la descripción y el `usage` de cada comando.
