@@ -52,7 +52,7 @@ jobs:
         id: meta
         run: |
           SHORT_SHA="${GITHUB_SHA::12}"
-          echo "image=quay.io/arkit8s/architects-console" >> "$GITHUB_OUTPUT"
+          echo "image=quay.io/sergio_canales_e/arkit8s/architects-console" >> "$GITHUB_OUTPUT"
           echo "tag=$SHORT_SHA" >> "$GITHUB_OUTPUT"
       - name: Build and push image
         run: >-
