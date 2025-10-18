@@ -26,7 +26,7 @@ spec:
     spec:
       containers:
         - name: web-console
-          image: quay.io/arkit8s/architects-console:latest
+          image: quay.io/sergio_canales_e/arkit8s/architects-console:latest
           imagePullPolicy: IfNotPresent
           env:
             - name: COMMANDS_PATH

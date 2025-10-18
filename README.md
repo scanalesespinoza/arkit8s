@@ -112,8 +112,8 @@ ligero que depender de un modelo opensource genérico.
 ### Visualización Architects
 
 1. Ejecuta `python arkit8s.py console sync` tras añadir o modificar comandos del CLI. Este paso genera `architecture/support-domain/architects-visualization/console-commands-configmap.yaml` con la descripción y el `usage` de cada comando.
-2. Construye la nueva imagen Quarkus/Qute si deseas publicarla en tu propio registro: `mvn -pl support-domain/architects-console package -Dquarkus.container-image.build=true -Dquarkus.container-image.image=quay.io/arkit8s/architects-console:latest`.
-3. Aplica los manifiestos (`./arkit8s.py cluster deploy --env sandbox`) para desplegar el `Deployment` que usa directamente la imagen `quay.io/arkit8s/architects-console:latest`, montando tanto la configuración Qute como los comandos generados sin necesidad de compilar en el clúster.
+2. Construye la nueva imagen Quarkus/Qute si deseas publicarla en tu propio registro: `mvn -pl support-domain/architects-console package -Dquarkus.container-image.build=true -Dquarkus.container-image.image=quay.io/sergio_canales_e/arkit8s/architects-console:latest`.
+3. Aplica los manifiestos (`./arkit8s.py cluster deploy --env sandbox`) para desplegar el `Deployment` que usa directamente la imagen `quay.io/sergio_canales_e/arkit8s/architects-console:latest`, montando tanto la configuración Qute como los comandos generados sin necesidad de compilar en el clúster.
 4. El manifiesto ya declara la `Route` `architects-visualization-support-domain.apps-crc.testing`, por lo que basta con ejecutar `./arkit8s.py cluster deploy --env sandbox` y consultar la URL registrada en `tmp/command-output.out`. Alternativamente, puedes hacer `oc port-forward svc/architects-visualization 8080` para una sesión temporal.
 5. Utiliza la consola web para invocar acciones del CLI desde el navegador, manteniendo sincronía entre operaciones declarativas y observabilidad del plano de control.
 

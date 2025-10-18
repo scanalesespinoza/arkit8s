@@ -19,7 +19,7 @@ java -jar target/quarkus-app/quarkus-run.jar
 ## Contenedor
 ```bash
 mvn -pl support-domain/architects-console package -Dquarkus.container-image.build=true \
-    -Dquarkus.container-image.image=quay.io/arkit8s/architects-console:latest
+    -Dquarkus.container-image.image=quay.io/sergio_canales_e/arkit8s/architects-console:latest
 ```
 
 El contenedor expone el puerto `8080` y espera encontrar el archivo `commands.json` en `/opt/arkit8s/commands/commands.json`.
