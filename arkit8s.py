@@ -18,6 +18,7 @@ ARCH_DIR = REPO_ROOT / "architecture"
 UTIL_DIR = REPO_ROOT / "utilities"
 ENV_DIR = REPO_ROOT / "environments"
 SIM_TEMPLATE_PATH = UTIL_DIR / "simulator-deployment.yaml.tpl"
+SIMULATOR_LABEL_FILTER = ("-l", "arkit8s.simulator!=true")
 
 
 def _load_usage_text() -> str:
@@ -38,6 +39,14 @@ def _load_usage_text() -> str:
 
 
 USAGE_TEXT = _load_usage_text()
+
+
+def _ensure_utf8_io() -> None:
+    """Force UTF-8 encoding on stdout/stderr so emoji output works on Windows."""
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
+    if hasattr(sys.stderr, "reconfigure"):
+        sys.stderr.reconfigure(encoding="utf-8")
 
 
 def run(cmd: list[str], check: bool = True) -> subprocess.CompletedProcess:
@@ -110,8 +119,13 @@ def validate_cluster(args: argparse.Namespace, quiet: bool = False) -> int:
             return 1
     if not quiet:
         print("📦 Verificando deployments en estado Running...")
+        print("ℹ️  Ignorando deployments/pods con la etiqueta arkit8s.simulator=true")
     for ns in namespaces:
-        proc = subprocess.run(["oc", "get", "deploy", "-n", ns, "--no-headers"], capture_output=True, text=True)
+        proc = subprocess.run(
+            ["oc", "get", "deploy", "-n", ns, "--no-headers", *SIMULATOR_LABEL_FILTER],
+            capture_output=True,
+            text=True,
+        )
         if proc.returncode != 0:
             continue
         for line in proc.stdout.splitlines():
@@ -136,7 +150,11 @@ def validate_cluster(args: argparse.Namespace, quiet: bool = False) -> int:
     if not quiet:
         print("🚨 Verificando pods sin errores ni reinicios...")
     for ns in namespaces:
-        proc = subprocess.run(["oc", "get", "pods", "-n", ns, "--no-headers"], capture_output=True, text=True)
+        proc = subprocess.run(
+            ["oc", "get", "pods", "-n", ns, "--no-headers", *SIMULATOR_LABEL_FILTER],
+            capture_output=True,
+            text=True,
+        )
         if proc.returncode != 0:
             continue
         for line in proc.stdout.splitlines():
@@ -176,7 +194,11 @@ def watch(args: argparse.Namespace) -> int:
             print(f"  - {ns}")
         print("Deployments:")
         for ns in namespaces:
-            proc = subprocess.run(["oc", "get", "deploy", "-n", ns, "--no-headers"], capture_output=True, text=True)
+            proc = subprocess.run(
+                ["oc", "get", "deploy", "-n", ns, "--no-headers", *SIMULATOR_LABEL_FILTER],
+                capture_output=True,
+                text=True,
+            )
             for line in proc.stdout.splitlines():
                 name = line.split()[0]
                 print(f"  {ns}/{name}")
@@ -185,10 +207,10 @@ def watch(args: argparse.Namespace) -> int:
             subprocess.run(["oc", "get", "ns", ns, "--no-headers"])
         print("Deployment status:")
         for ns in namespaces:
-            subprocess.run(["oc", "get", "deploy", "-n", ns, "--no-headers"])
+            subprocess.run(["oc", "get", "deploy", "-n", ns, "--no-headers", *SIMULATOR_LABEL_FILTER])
         print("Pod status:")
         for ns in namespaces:
-            subprocess.run(["oc", "get", "pods", "-n", ns, "--no-headers"])
+            subprocess.run(["oc", "get", "pods", "-n", ns, "--no-headers", *SIMULATOR_LABEL_FILTER])
         print("Bootstrap manifests:")
         for f in (ARCH_DIR / "bootstrap").glob("*.yaml"):
             print(f"  - {f.name}")
