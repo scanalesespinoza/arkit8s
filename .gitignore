@@ -417,5 +417,7 @@ FodyWeavers.xsd
 *.msm
 *.msp
 
-# Local command outputs
+# Local build artifacts
+support-domain/architects-console/
 tmp/
+**/load-simulators.yaml

@@ -17,9 +17,21 @@ Inspirados por el proyecto [Kubeland Desktop Client](https://github.com/scanales
 make crc-dev
 ```
 
+## Instalación limpia verificada en CRC
+
+Para reinstalar el stack desde cero contra un CRC local ya autenticado:
+
+1. Asegura `oc login` con un usuario que tenga permisos para crear namespaces y desplegar recursos.
+2. Ejecuta `python arkit8s.py uninstall` seguido de `make destroy` para borrar los namespaces `business-domain`, `shared-components`, `support-domain` y la suscripción/operatorgroup del operador RHBK.
+3. Aplica los manifiestos base y del overlay `sandbox` con `python arkit8s.py install --env sandbox`.
+4. Valida el estado con `python arkit8s.py validate-cluster --env sandbox`; este chequeo ignora automáticamente los pods y deployments etiquetados como `arkit8s.simulator=true`, por lo que los simuladores que deliberadamente usan `BEHAVIOR=notready` o `restart` no bloquean la verificación.
+5. Complementa con `make wait`, `make admin` y `make open` para confirmar que Keycloak esté listo y recuperar credenciales/URL del clúster.
+
+El CLI ahora fuerza UTF-8 en stdout/stderr para evitar errores como `UnicodeEncodeError` cuando se imprimen emojis (`🔍`). Además, `support-domain/identity/kustomization.yaml` incluye `apiVersion` y `kind`, lo que permite reutilizar `oc apply -k support-domain/identity` para desplegar la personalización `support-domain/identity/rhbk.yaml` que apunta a `shared-components/keycloak/overlays/crc-dev`.
+
 ## Comandos útiles de Makefile
 
-- `make wait` – espera a que Keycloak esté listo.
+- `make wait` - espera a que Keycloak esté listo.
 - `make admin` – muestra las credenciales iniciales.
 - `make open` – imprime la URL de acceso.
 
