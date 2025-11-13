@@ -1,0 +1,73 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: architects-visualization
+  namespace: support-domain
+  labels:
+    app: architects-visualization
+    app.kubernetes.io/name: architects-visualization
+    app.kubernetes.io/component: control-plane
+    app.kubernetes.io/part-of: arkit8s
+  annotations:
+    architecture.domain: support
+    architecture.function: architecture-visualization
+    architecture.part_of: arkit8s
+    architecture.calls: architects-console-commands
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: architects-visualization
+  template:
+    metadata:
+      labels:
+        app: architects-visualization
+    spec:
+      containers:
+        - name: web-console
+          image: quay.io/sergio_canales_e/arkit8s/architects-console:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: COMMANDS_PATH
+              value: /opt/arkit8s/commands/commands.json
+            - name: COMMANDS_REFRESH
+              value: PT5S
+            - name: QUARKUS_CONFIG_LOCATIONS
+              value: file:/deployments/config/application.properties
+          ports:
+            - containerPort: 8080
+              name: http
+          volumeMounts:
+            - name: ui-config
+              mountPath: /deployments/config
+            - name: cli-commands
+              mountPath: /opt/arkit8s/commands
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /q/health/ready
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /q/health/live
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 20
+      volumes:
+        - name: ui-config
+          configMap:
+            name: architects-visualization-ui
+            items:
+              - key: application.properties
+                path: application.properties
+              - key: dashboard.qute.html
+                path: templates/dashboard.qute.html
+        - name: cli-commands
+          configMap:
+            name: architects-console-commands
+            items:
+              - key: commands.json
+                path: commands.json

@@ -1,8 +1,8 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-commonLabels:
-  arkit8s.component: auth-provider
 resources:
-  - deployment.yaml
+  - secret-root-credentials.yaml
+  - configmap-omnibus.yaml
+  - statefulset.yaml
   - service.yaml
   - route.yaml

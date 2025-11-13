@@ -1,0 +1,522 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: architects-visualization-ui
+  namespace: support-domain
+  labels:
+    app.kubernetes.io/name: architects-visualization
+    app.kubernetes.io/component: ui
+    app.kubernetes.io/part-of: arkit8s
+  annotations:
+    architecture.domain: support
+    architecture.function: architecture-visualization
+    architecture.part_of: arkit8s
+    architecture.calls: architects-console-commands
+    architecture.invoked_by: sentik
+data:
+  application.properties: |
+    quarkus.http.port=8080
+    quarkus.http.cors=true
+    quarkus.default-locale=es
+    quarkus.qute.suffixes=html
+    quarkus.swagger-ui.always-include=true
+    arkit8s.console.commands-path=/opt/arkit8s/commands/commands.json
+    arkit8s.console.refresh-interval=PT5S
+    arkit8s.console.installation-status-path=/opt/arkit8s/state/installation-status.json
+    arkit8s.console.installation-refresh-interval=PT15S
+    arkit8s.console.title=Arkit8s Architects Console
+    arkit8s.console.description=Interfaz web inspirada en Kubeland para los comandos del CLI arkit8s.
+  dashboard.qute.html: |
+    <!DOCTYPE html>
+    <html lang="es">
+      <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>{title ?: 'Arkit8s Architects Console'}</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Red+Hat+Text:wght@400;600;700&display=swap"
+          rel="stylesheet"
+        />
+        <style>
+          :root {
+            color-scheme: dark light;
+            font-family: "Red Hat Text", "Segoe UI", sans-serif;
+            background: radial-gradient(circle at top left, #0f172a 0%, #020617 100%);
+            color: #e2e8f0;
+          }
+          body {
+            margin: 0;
+            padding: 0;
+          }
+          header {
+            padding: 1.5rem 2rem;
+            background: rgba(30, 64, 175, 0.85);
+            backdrop-filter: blur(8px);
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+          }
+          header h1 {
+            margin: 0;
+            font-size: clamp(2rem, 3vw, 3rem);
+          }
+          header p {
+            margin: 0;
+            max-width: 780px;
+            line-height: 1.6;
+          }
+          main {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+            gap: 1.5rem;
+            padding: 2rem;
+          }
+          section {
+            background: rgba(15, 23, 42, 0.75);
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: 0 20px 45px rgba(15, 23, 42, 0.45);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+          }
+          h2 {
+            margin: 0;
+            font-size: 1.6rem;
+          }
+          h3 {
+            margin: 0;
+            font-size: 1.2rem;
+          }
+          .install-grid {
+            display: grid;
+            gap: 1rem;
+          }
+          .install-grid strong {
+            display: block;
+            font-size: 0.85rem;
+            opacity: 0.75;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+          }
+          .status-pill {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.35rem 0.8rem;
+            border-radius: 999px;
+            background: rgba(59, 130, 246, 0.2);
+            border: 1px solid rgba(59, 130, 246, 0.35);
+            font-size: 0.85rem;
+            font-weight: 600;
+          }
+          .phase-list {
+            display: grid;
+            gap: 0.75rem;
+          }
+          .phase-card {
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            border-radius: 12px;
+            padding: 0.85rem 1rem;
+            background: rgba(15, 23, 42, 0.45);
+            display: grid;
+            gap: 0.35rem;
+          }
+          .phase-card header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: 1rem;
+            font-weight: 600;
+          }
+          .phase-meta {
+            font-size: 0.8rem;
+            opacity: 0.75;
+          }
+          .resource-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+          }
+          .resource-table th,
+          .resource-table td {
+            padding: 0.55rem 0.75rem;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+            text-align: left;
+          }
+          .resource-table tbody tr:last-child td {
+            border-bottom: none;
+          }
+          .resource-table th {
+            font-weight: 600;
+            opacity: 0.75;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.06em;
+          }
+          .empty-state {
+            font-style: italic;
+            opacity: 0.8;
+          }
+          .command-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+          }
+          .command-card {
+            border-radius: 12px;
+            padding: 1rem;
+            border: 1px solid rgba(94, 234, 212, 0.35);
+            background: rgba(15, 118, 110, 0.2);
+            display: grid;
+            gap: 0.4rem;
+          }
+          .command-card strong {
+            font-size: 1.1rem;
+          }
+          .command-card code {
+            display: inline-block;
+            padding: 0.4rem 0.6rem;
+            border-radius: 8px;
+            background: rgba(15, 23, 42, 0.8);
+            color: #67e8f9;
+            font-size: 0.9rem;
+            font-family: "Fira Code", monospace;
+          }
+          .meta {
+            font-size: 0.85rem;
+            opacity: 0.8;
+          }
+          .terminal {
+            flex: 1;
+            border-radius: 12px;
+            background: #000000;
+            color: #67e8f9;
+            font-family: "Fira Code", monospace;
+            padding: 1rem;
+            overflow: auto;
+            min-height: 280px;
+            box-shadow: inset 0 0 0 1px rgba(94, 234, 212, 0.2);
+            white-space: pre-wrap;
+          }
+          .events {
+            font-family: "Fira Code", monospace;
+            font-size: 0.85rem;
+            display: grid;
+            gap: 0.4rem;
+          }
+          .events span {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+          }
+          .events span strong {
+            color: #38bdf8;
+          }
+          button.primary {
+            align-self: flex-start;
+            padding: 0.75rem 1.5rem;
+            border-radius: 999px;
+            border: none;
+            background: linear-gradient(135deg, #38bdf8, #a855f7);
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+          }
+          button.primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 20px 40px rgba(56, 189, 248, 0.25);
+          }
+          footer {
+            padding: 1rem 2rem 2rem;
+            font-size: 0.85rem;
+            opacity: 0.75;
+          }
+          @media (max-width: 700px) {
+            main {
+              grid-template-columns: 1fr;
+            }
+          }
+        </style>
+      </head>
+      <body>
+        <header>
+          <h1>{title}</h1>
+          <p>{description}</p>
+          <span class="meta">Última sincronización del catálogo: {generatedAt}</span>
+        </header>
+        <main>
+          <section id="installation-section">
+            <h2>Instalación de la arquitectura de referencia</h2>
+            <div class="install-grid" id="installation-summary">
+              <div>
+                <strong>Arquitectura</strong>
+                <span>{installation.architecture ?: 'Arquitectura de referencia'}</span>
+              </div>
+              <div>
+                <strong>Estado actual</strong>
+                <span class="status-pill">{installation.status ?: 'SIN_DATOS'}</span>
+              </div>
+              <div>
+                <strong>Detalle</strong>
+                <span>{installation.detail ?: 'Sin detalles registrados.'}</span>
+              </div>
+              <div>
+                <strong>Progreso</strong>
+                {#if installation.progress >= 0}
+                  <span>{installation.progress}% completado</span>
+                {#else}
+                  <span>Sin datos de progreso.</span>
+                {/if}
+              </div>
+              <div>
+                <strong>Última actualización</strong>
+                <span>{installation.generatedAt}</span>
+              </div>
+            </div>
+            <div>
+              <h3>Fases de despliegue</h3>
+              <div class="phase-list" id="phase-list">
+                {#if installation.phases.isEmpty}
+                  <p class="empty-state">Aún no se registran fases de instalación.</p>
+                {#else}
+                  {#for phase in installation.phases}
+                    <article class="phase-card">
+                      <header>
+                        <span>{phase.name}</span>
+                        <span class="status-pill">{phase.status}</span>
+                      </header>
+                      <p>{phase.detail ?: 'Sin detalles adicionales.'}</p>
+                      <span class="phase-meta">Inicio: {phase.startedAt ?: '-'} · Fin: {phase.completedAt ?: '-'}</span>
+                    </article>
+                  {/for}
+                {/if}
+              </div>
+            </div>
+            <div>
+              <h3>Recursos instanciados</h3>
+              <div class="resource-table-wrapper">
+                <table class="resource-table" id="resource-table">
+                  <thead>
+                    <tr>
+                      <th>Tipo</th>
+                      <th>Nombre</th>
+                      <th>Namespace</th>
+                      <th>Estado</th>
+                      <th>Mensaje</th>
+                      <th>Edad</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {#if installation.resources.isEmpty}
+                      <tr>
+                        <td colspan="6" class="empty-state">No hay recursos reportados todavía.</td>
+                      </tr>
+                    {#else}
+                      {#for resource in installation.resources}
+                        <tr>
+                          <td>{resource.kind}</td>
+                          <td>{resource.name}</td>
+                          <td>{resource.namespace}</td>
+                          <td>{resource.status}</td>
+                          <td>{resource.message ?: '-'}</td>
+                          <td>{resource.age ?: '-'}</td>
+                        </tr>
+                      {/for}
+                    {/if}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+          <section>
+            <h2>Comandos del CLI</h2>
+            <ul class="command-list">
+              {#if commands.isEmpty}
+                <li class="command-card">Sin comandos registrados. Ejecuta <code>arkit8s.py sync-web-console</code>.</li>
+              {#else}
+                {#for command in commands}
+                  <li class="command-card" data-command="{command.name}">
+                    <strong>{command.name}</strong>
+                    <span>{command.summary}</span>
+                    <code>{command.canonicalCommand()}</code>
+                    <button class="primary" data-action="copy" data-command="{command.canonicalCommand()}">
+                      Copiar comando
+                    </button>
+                  </li>
+                {/for}
+              {/if}
+            </ul>
+          </section>
+          <section>
+            <h2>Actividad reciente</h2>
+            <div class="events" id="event-feed">
+              <span><em>Sin eventos registrados.</em></span>
+            </div>
+            <h2>Bitácora web</h2>
+            <div class="terminal" id="terminal-log">
+              Selecciona un comando para copiarlo y ejecutarlo en tu terminal favorita.
+            </div>
+          </section>
+        </main>
+        <footer>
+          La consola web observa el archivo configurado en <code>arkit8s.console.commands-path</code>.
+        </footer>
+        <script>
+          const initialInstallation = {
+            architecture: {installation.architecture | json},
+            generatedAt: {installation.generatedAt | json},
+            status: {installation.status | json},
+            progress: {installation.progress},
+            detail: {installation.detail | json},
+            phases: {#if installation.phases.isEmpty}[]{#else}[
+              {#for phase in installation.phases}
+              {
+                "name": {phase.name | json},
+                "status": {phase.status | json},
+                "detail": {phase.detail | json},
+                "startedAt": {phase.startedAt | json},
+                "completedAt": {phase.completedAt | json}
+              }{#if !phase_hasNext},{/if}
+              {/for}
+            ]{/if},
+            resources: {#if installation.resources.isEmpty}[]{#else}[
+              {#for resource in installation.resources}
+              {
+                "kind": {resource.kind | json},
+                "name": {resource.name | json},
+                "namespace": {resource.namespace | json},
+                "status": {resource.status | json},
+                "message": {resource.message | json},
+                "age": {resource.age | json}
+              }{#if !resource_hasNext},{/if}
+              {/for}
+            ]{/if}
+          };
+
+          function renderInstallationStatus(data) {
+            const summary = document.getElementById('installation-summary');
+            if (summary) {
+              summary.innerHTML = `
+                <div>
+                  <strong>Arquitectura</strong>
+                  <span>${data.architecture || 'Arquitectura de referencia'}</span>
+                </div>
+                <div>
+                  <strong>Estado actual</strong>
+                  <span class="status-pill">${data.status || 'SIN_DATOS'}</span>
+                </div>
+                <div>
+                  <strong>Detalle</strong>
+                  <span>${data.detail || 'Sin detalles registrados.'}</span>
+                </div>
+                <div>
+                  <strong>Progreso</strong>
+                  <span>${Number.isInteger(data.progress) && data.progress >= 0 ? `${data.progress}% completado` : 'Sin datos de progreso.'}</span>
+                </div>
+                <div>
+                  <strong>Última actualización</strong>
+                  <span>${data.generatedAt || 'Sin registro'}</span>
+                </div>`;
+            }
+
+            const phasesContainer = document.getElementById('phase-list');
+            if (phasesContainer) {
+              if (!data.phases || data.phases.length === 0) {
+                phasesContainer.innerHTML = '<p class="empty-state">Aún no se registran fases de instalación.</p>';
+              } else {
+                phasesContainer.innerHTML = data.phases
+                  .map((phase) => `
+                    <article class="phase-card">
+                      <header>
+                        <span>${phase.name}</span>
+                        <span class="status-pill">${phase.status}</span>
+                      </header>
+                      <p>${phase.detail || 'Sin detalles adicionales.'}</p>
+                      <span class="phase-meta">Inicio: ${phase.startedAt || '-'} · Fin: ${phase.completedAt || '-'}</span>
+                    </article>`)
+                  .join('');
+              }
+            }
+
+            const resourceTable = document.querySelector('#resource-table tbody');
+            if (resourceTable) {
+              if (!data.resources || data.resources.length === 0) {
+                resourceTable.innerHTML = '<tr><td colspan="6" class="empty-state">No hay recursos reportados todavía.</td></tr>';
+              } else {
+                resourceTable.innerHTML = data.resources
+                  .map((resource) => `
+                    <tr>
+                      <td>${resource.kind}</td>
+                      <td>${resource.name}</td>
+                      <td>${resource.namespace}</td>
+                      <td>${resource.status}</td>
+                      <td>${resource.message || '-'}</td>
+                      <td>${resource.age || '-'}</td>
+                    </tr>`)
+                  .join('');
+              }
+            }
+          }
+
+          async function fetchInstallationStatus() {
+            try {
+              const response = await fetch('/api/installation');
+              if (!response.ok) {
+                return;
+              }
+              const data = await response.json();
+              renderInstallationStatus(data);
+            } catch (err) {
+              console.error('No fue posible actualizar el estado de la instalación', err);
+            }
+          }
+
+          async function fetchEvents() {
+            const response = await fetch('/api/events');
+            if (!response.ok) return;
+            const events = await response.json();
+            const feed = document.getElementById('event-feed');
+            if (!Array.isArray(events) || events.length === 0) {
+              feed.innerHTML = '<span><em>Sin eventos registrados.</em></span>';
+              return;
+            }
+            feed.innerHTML = events
+              .map(
+                (event) =>
+                  `<span><strong>${event.type}</strong><span>${new Date(event.at).toLocaleTimeString()} · ${event.detail}</span></span>`
+              )
+              .join('');
+          }
+
+          function setupCopyButtons() {
+            document.body.addEventListener('click', async (event) => {
+              const trigger = event.target.closest('button[data-action="copy"]');
+              if (!trigger) return;
+              const command = trigger.dataset.command;
+              try {
+                await navigator.clipboard.writeText(command);
+                const terminal = document.getElementById('terminal-log');
+                terminal.textContent = `$ ${command}\nComando copiado al portapapeles. Ejecuta desde tu shell favorita.`;
+              } catch (err) {
+                console.error('No fue posible copiar el comando', err);
+              }
+            });
+          }
+
+          renderInstallationStatus(initialInstallation);
+          setupCopyButtons();
+          fetchEvents();
+          fetchInstallationStatus();
+          setInterval(fetchEvents, 5000);
+          setInterval(fetchInstallationStatus, 7000);
+        </script>
+      </body>
+    </html>

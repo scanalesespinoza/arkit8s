@@ -4,3 +4,5 @@ commonLabels:
   arkit8s.domain: shared
 resources:
   - access-control
+  - openshift-pipelines
+  - gitlab-ce

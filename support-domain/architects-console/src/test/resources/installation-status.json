@@ -1,0 +1,41 @@
+{
+  "architecture": "Arkit8s Reference",
+  "generated_at": "2024-01-01T12:00:00Z",
+  "status": "APPLYING",
+  "progress": 45,
+  "detail": "Aplicando manifiestos base",
+  "phases": [
+    {
+      "name": "Preparación de namespaces",
+      "status": "COMPLETED",
+      "detail": "Namespaces principales creados",
+      "started_at": "2024-01-01T11:55:00Z",
+      "completed_at": "2024-01-01T11:56:00Z"
+    },
+    {
+      "name": "Despliegue de componentes compartidos",
+      "status": "APPLYING",
+      "detail": "Aplicando recursos de soporte",
+      "started_at": "2024-01-01T11:57:00Z",
+      "completed_at": null
+    }
+  ],
+  "resources": [
+    {
+      "kind": "Namespace",
+      "name": "support-domain",
+      "namespace": "",
+      "status": "Listo",
+      "message": "Namespace disponible",
+      "age": "3m"
+    },
+    {
+      "kind": "Deployment",
+      "name": "architects-console",
+      "namespace": "support-domain",
+      "status": "En progreso",
+      "message": "Replicaset sincronizando",
+      "age": "1m"
+    }
+  ]
+}

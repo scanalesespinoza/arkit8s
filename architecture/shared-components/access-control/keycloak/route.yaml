@@ -1,0 +1,21 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: keycloak
+  namespace: shared-components
+  labels:
+    app: keycloak
+    arkit8s.domain: shared
+  annotations:
+    architecture.domain: shared
+    architecture.function: auth-provider
+    architecture.part_of: arkit8s
+spec:
+  host: keycloak-shared-components.apps-crc.testing
+  to:
+    kind: Service
+    name: keycloak
+    weight: 100
+  port:
+    targetPort: http
+  wildcardPolicy: None
