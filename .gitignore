@@ -420,3 +420,4 @@ FodyWeavers.xsd
 # Local build artifacts
 support-domain/architects-console/
 tmp/
+**/load-simulators.yaml
